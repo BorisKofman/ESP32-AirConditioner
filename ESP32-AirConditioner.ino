@@ -2,6 +2,10 @@
 #include <DHT.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <IRrecv.h>
+#include <IRutils.h>
+#include <Preferences.h>  // For NVS
+
 #include <ir_Goodweather.h>
 
 #define DHT_PIN 21  // DHT11 sensor pin
@@ -13,8 +17,24 @@ unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
 
 const uint16_t kIrLedPin = 4; // Define the GPIO pin for the IR LED
+const uint16_t kRecvPin = 14; // Pin where the IR receiver is connected
+
+const uint32_t kBaudRate = 115200;
+const uint16_t kCaptureBufferSize = 1024;
+const uint8_t kTimeout = 50;  // Timeout for A/C messages
+const uint8_t kTolerancePercentage = kTolerance;
+
+//IR receiver
+IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeout, true);
+decode_results results;
+//IR transmiter 
 IRsend irsend(kIrLedPin);
-IRGoodweatherAc ac(kIrLedPin);
+
+
+IRGoodweatherAc ac(kIrLedPin, kRecvPin);  // Initialize the object with both send and receive pins
+
+
+Preferences preferences;
 
 class HeaterCooler : public Service::HeaterCooler {
   SpanCharacteristic *active;
@@ -55,6 +75,12 @@ public:
       lastReadTime = currentTime;
       readTemperatureAndHumidity();
     }
+    if (irrecv.decode(&results)) {
+      ac.setRaw(results.value);  // Set the internal state from the received IR signal
+      active->setVal(ac.getPower());
+      currentState->setVal(ac.getMode());
+      coolingTemp->setVal(ac.getTemp());
+    }
   }
 
   void readTemperatureAndHumidity() {
@@ -72,7 +98,6 @@ public:
   boolean update() override {
     if (active->getNewVal() == 0) {
       // Turn Off the AC
-      Serial.print("Turn off AC: ");
       ac.setPower(false); // Send IR command to turn off the AC
     } else if (active->getNewVal() == 1) {
       // Turn On the AC
@@ -93,17 +118,14 @@ public:
       int state = targetState->getNewVal();
       currentState->setVal(state == 0 ? 1 : (state == 1 ? 2 : 3)); // Set current state based on target state
       if (state == 0) { // Auto
-        Serial.print("state: Auto "); Serial.println(heatingTemp->getNewVal()); Serial.print("Change Fan speed:"); Serial.print(rotationSpeed->getNewVal()); Serial.print("swing mode:"); Serial.print(swingMode->getNewVal());
         ac.setMode(kGoodweatherAuto);
         ac.setTemp(coolingTemp->getNewVal());  // Set temperature
       } else if (state == 1) { // Heating
-        Serial.print("state: Heating "); Serial.println(heatingTemp->getNewVal()); Serial.print("Change Fan speed:"); Serial.print(rotationSpeed->getNewVal()); Serial.print("swing mode:"); Serial.print(swingMode->getNewVal());
         ac.setTemp(heatingTemp->getNewVal());  // Set temperature
         ac.setMode(kGoodweatherHeat);  //
       } else if (state == 2) { // Cooling
         ac.setMode(kGoodweatherCool);  // Set mode to cooling
         ac.setTemp(coolingTemp->getNewVal());  // Set temperature
-        Serial.print("state: Cooling "); Serial.println(coolingTemp->getNewVal()); Serial.print("Change Fan speed:"); Serial.print(rotationSpeed->getNewVal()); Serial.print("swing mode:"); Serial.print(swingMode->getNewVal());
       }
     }
     // Send IR command for cooling mode with specified settings
@@ -113,11 +135,15 @@ public:
 };
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(kBaudRate);
 
-  // wifi
-  homeSpan.setWifiCredentials("yourSSID", "yourPASSWORD");
+  irrecv.setTolerance(kTolerancePercentage);
+  irrecv.enableIRIn();
+
   homeSpan.begin(Category::AirConditioners, "Air Conditioner");
+  homeSpan.setApTimeout(180); // Set the timeout to 180 seconds (adjust as needed)
+  homeSpan.enableAutoStartAP();
+  // homeSpan.setControlCallback(pairUnpairCallback); // Set the pairing/unpairing callback function future 
 
   new SpanAccessory();
   new Service::AccessoryInformation();
@@ -132,6 +158,18 @@ void setup() {
 }
 
 void loop() {
+  // Check if the IR code has been received.
+  if (irrecv.decode(&results)) {
+    preferences.begin("ac_ctrl", false);  // Re-open NVS storage with namespace "esp32_air_conditioner"
+    String irType = typeToString(results.decode_type);
+    if (!preferences.isKey("irType")) {
+      // Save the IR type to NVS
+      if (preferences.putString("irType", irType)) {
+        Serial.println(irType);
+      }
+      preferences.end();  // Close NVS storag
+    }
+  }
   homeSpan.poll();
 }
 
