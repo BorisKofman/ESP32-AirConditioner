@@ -30,8 +30,8 @@ decode_results results;
 //IR transmiter 
 IRsend irsend(kIrLedPin);
 
-
-IRGoodweatherAc ac(kIrLedPin, kRecvPin);  // Initialize the object with both send and receive pins
+// Initialize the object with send pin only
+IRGoodweatherAc ac(kIrLedPin);
 
 
 Preferences preferences;
