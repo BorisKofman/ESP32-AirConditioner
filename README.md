@@ -1,88 +1,101 @@
-# ESP32 HomeKit Air Conditioner Controller
+# ESP32 Air Conditioner Controller
 
-This project implements a HomeKit-enabled Air Conditioner (AC) controller using an ESP32 microcontroller and a DHT11 sensor to measure temperature and humidity. The controller supports various AC modes, including Auto, Heating, and Cooling, and can adjust the fan speed and swing mode.
+This project is an implementation of an ESP32-based Air Conditioner controller using the HomeSpan library for HomeKit integration. It uses a DHT11 sensor to monitor temperature and humidity and controls the AC via IR signals.
 
 ## Features
 
-- HomeKit integration using the HomeSpan library.
-- Temperature and humidity measurement using a DHT11 sensor.
-- Control of AC modes: Auto, Heating, and Cooling.
-- Adjustable cooling and heating thresholds.
-- Adjustable fan speed and swing mode.
-- State persistence using Non-Volatile Storage (NVS).
+- **HomeKit Integration**: Control your air conditioner using Apple's HomeKit.
+- **Temperature and Humidity Monitoring**: Uses a DHT11 sensor to report current temperature and humidity.
+- **IR Control**: Sends and receives IR signals to control the air conditioner.
+- **Persistent Storage**: Uses ESP32's NVS for storing settings.
 
-## Hardware Requirements
+## Components
 
-- ESP32 development board
-- DHT11 temperature and humidity sensor
-- AC unit with IR remote control (optional, for full integration)
-- Breadboard and jumper wires (for prototyping)
+- **ESP32**
+- **DHT11 Sensor**
+- **IR LED and Receiver**
+- **HomeSpan Library**
 
-## Software Requirements
+## Circuit Diagram
 
-- [Arduino IDE](https://www.arduino.cc/en/software) or [PlatformIO](https://platformio.org/)
-- [HomeSpan library](https://github.com/HomeSpan/HomeSpan)
-- [DHT sensor library](https://github.com/adafruit/DHT-sensor-library)
-- [Adafruit Unified Sensor library](https://github.com/adafruit/Adafruit_Sensor)
-
-## Wiring Diagram
-
-Connect the DHT11 sensor to the ESP32 as follows:
-
-- VCC to 3.3V
-- GND to GND
-- Data to GPIO 16 (D16 on some boards)
+![Circuit Diagram](./circuit-diagram.png)
 
 ## Installation
 
 1. **Clone the repository:**
 
-    ```bash
-    git clone https://github.com/your-username/esp32-homekit-ac-controller.git
-    cd esp32-homekit-ac-controller
+    ```sh
+    git clone https://github.com/yourusername/esp32-air-conditioner-controller.git
+    cd esp32-air-conditioner-controller
     ```
 
-2. **Install the required libraries in Arduino IDE:**
+2. **Install PlatformIO:**
 
-    - HomeSpan
-    - DHT sensor library
-    - Adafruit Unified Sensor library
+    Install PlatformIO as an extension in Visual Studio Code.
 
-3. **Open the project in Arduino IDE or PlatformIO.**
+3. **Install HomeSpan Library:**
 
-4. **Update WiFi credentials:**
+    In the `platformio.ini` file, add:
 
-    Update the `setup` function with your WiFi credentials:
-
-    ```cpp
-    homeSpan.setWifiCredentials("YOUR-SSID", "YOUR-PASSWORD");
+    ```ini
+    lib_deps = 
+        HomeSpan
+        DHT sensor library
+        IRremoteESP8266
+        Preferences
     ```
 
-5. **Upload the code to your ESP32:**
+4. **Build and Upload:**
 
-    Select the appropriate board and port in the Arduino IDE and upload the code.
-
-## Code Explanation
-
-### ACController Class
-
-The `ACController` class extends the `Service::HeaterCooler` class provided by HomeSpan. It defines various characteristics and handles the state and behavior of the AC unit.
-
-### Main Functions
-
-- **setup()**: Initializes the HomeKit accessory, DHT sensor, and sets up the ACController instance.
-- **loop()**: Continuously polls HomeSpan and updates temperature and humidity readings.
-
-### Key Methods
-
-- **update()**: Handles changes to the AC state and prints relevant updates to the serial monitor.
-- **readTemperatureAndHumidity()**: Reads temperature and humidity values from the DHT11 sensor and updates the HomeKit characteristics.
+    Connect your ESP32 board and use PlatformIO to build and upload the firmware.
 
 ## Usage
 
-After uploading the code and connecting to your WiFi network, you can pair the ESP32 with the Apple Home app. The device will appear as an Air Conditioner with adjustable settings for mode, temperature, fan speed, and swing mode.
+1. **Connect the DHT11 sensor to pin 21 of the ESP32.**
+2. **Connect the IR LED to pin 4 and the IR receiver to pin 14.**
+3. **Power the ESP32 and monitor the serial output for the IP address.**
+4. **Add the device to HomeKit using the HomeSpan library instructions.**
 
-## Example Output
+## Code Overview
 
-When the state or temperature settings change, the serial monitor will display messages like:
+Here's a brief overview of the main code components:
 
+- **DHT Sensor Initialization:**
+
+    ```cpp
+    #define DHT_PIN 21
+    #define DHT_TYPE DHT11
+
+    DHT dht(DHT_PIN, DHT_TYPE);
+    ```
+
+- **IR Send and Receive Initialization:**
+
+    ```cpp
+    const uint16_t kIrLedPin = 4;
+    const uint16_t kRecvPin = 14;
+
+    IRrecv irrecv(kRecvPin);
+    IRsend irsend(kIrLedPin);
+    ```
+
+- **HomeSpan Service Definition:**
+
+    ```cpp
+    class HeaterCooler : public Service::HeaterCooler {
+        // Characteristics and methods
+    };
+
+    void setup() {
+        homeSpan.begin(Category::AirConditioners, "Air Conditioner");
+        new HeaterCooler();
+    }
+    ```
+
+## Contributing
+
+Feel free to fork this project, submit issues, and send pull requests. Contributions are welcome!
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
