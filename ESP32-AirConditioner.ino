@@ -16,9 +16,10 @@
 #define DHT_TYPE DHT11
 
 DHT dht(DHT_PIN, DHT_TYPE);
-
 unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
+
+
 
 const uint16_t kIrLedPin = 4; // Define the GPIO pin for the IR LED
 const uint16_t kRecvPin = 14; // Pin where the IR receiver is connected
@@ -40,6 +41,7 @@ IRGoodweatherAc ac(kIrLedPin);
 
 Preferences preferences;
 
+
 class HeaterCooler : public Service::HeaterCooler {
   SpanCharacteristic *active;
   SpanCharacteristic *currentState;
@@ -60,12 +62,12 @@ public:
     active = new Characteristic::Active(0, true); // default to Off, stored in NVS
     currentState = new Characteristic::CurrentHeaterCoolerState(0, true); // Inactive, stored in NVS
     targetState = new Characteristic::TargetHeaterCoolerState(0, true); // Auto, stored in NVS
-    currentTemp = new Characteristic::CurrentTemperature();
+    currentTemp = new Characteristic::CurrentTemperature(readTemperature());
     coolingTemp = new Characteristic::CoolingThresholdTemperature(24.0, true); // default cooling temp, stored in NVS
     heatingTemp = new Characteristic::HeatingThresholdTemperature(27, true); // default heating temp, stored in NVS
     rotationSpeed = new Characteristic::RotationSpeed(50, true); // default fan speed, stored in NVS
     unit = new Characteristic::TemperatureDisplayUnits(0, true); // 0 for Celsius, stored in NVS
-    currentHumidity = new Characteristic::CurrentRelativeHumidity();
+    currentHumidity = new Characteristic::CurrentRelativeHumidity(readHumidity());
     swingMode = new Characteristic::SwingMode(0, true); // default to Swing Disabled, stored in NVS
 
     coolingTemp->setRange(16, 31, 1); // Set valid range for cooling temperature
@@ -79,6 +81,7 @@ public:
       lastReadTime = currentTime;
       readTemperatureAndHumidity();
     }
+    
     if (irrecv.decode(&results)) {
       ac.setRaw(results.value);  // Set the internal state from the received IR signal
       active->setVal(ac.getPower());
@@ -92,7 +95,8 @@ public:
     float humidity = dht.readHumidity();
 
     if (!isnan(temperature) && !isnan(humidity)) {
-      currentTemp->setVal(temperature);
+      int roundedTemp = round(temperature);
+      currentTemp->setVal(roundedTemp);
       currentHumidity->setVal(humidity);
     } else {
       Serial.println("Failed to read from DHT sensor!");
@@ -136,8 +140,19 @@ public:
     irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
     return true;
     }
-  } 
-};
+  }
+  private:
+  float readTemperature() {
+    float temperature = round(dht.readTemperature());
+    int roundedTemp = round(temperature);
+    return isnan(temperature) ? 0.0 : roundedTemp;
+  }
+
+  float readHumidity() {
+    int humidity = dht.readHumidity();
+    return isnan(humidity) ? 0.0 : humidity;
+  }
+}; 
 
 void setup() {
   Serial.begin(kBaudRate);
@@ -150,14 +165,14 @@ void setup() {
   homeSpan.enableAutoStartAP();
   // homeSpan.setControlCallback(pairUnpairCallback); // Set the pairing/unpairing callback function future 
 
-  new SpanAccessory();
+new SpanAccessory();
   new Service::AccessoryInformation();
-  new Characteristic::Identify();
+    new Characteristic::Identify();
+    new Characteristic::Name("ESP32 Air Conditioner");
+    new Characteristic::Model("ESP32 AC Model");
+    new Characteristic::FirmwareRevision("1.0.1");
+
   new HeaterCooler();
-  new Characteristic::Name("ESP32 Air Conditioner");
-  new Characteristic::Model("ESP32 AC Model");
-  new Characteristic::FirmwareRevision("1.0.1");
-  new Characteristic::Identify();
 }
 
 void loop() {
