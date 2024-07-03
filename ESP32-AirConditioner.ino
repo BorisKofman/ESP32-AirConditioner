@@ -1,8 +1,12 @@
 #include "HomeSpan.h"
 #include <DHT.h>
+
+//For IR 
+#include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
+
 #include <Preferences.h>  // For NVS
 
 #include <ir_Goodweather.h>
@@ -151,10 +155,8 @@ void setup() {
   new Characteristic::Identify();
   new HeaterCooler();
   new Characteristic::Name("ESP32 Air Conditioner");
-  new Characteristic::Manufacturer("ESP32");
-  new Characteristic::SerialNumber("123-ABC");
   new Characteristic::Model("ESP32 AC Model");
-  new Characteristic::FirmwareRevision("1.1");
+  new Characteristic::FirmwareRevision("1.0.1");
   new Characteristic::Identify();
 }
 
