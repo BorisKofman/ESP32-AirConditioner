@@ -83,7 +83,18 @@ public:
       active->setVal(ac.getPower());
       currentState->setVal(ac.getMode());
       coolingTemp->setVal(ac.getTemp());
-      rotationSpeed->setVal(ac.getFan());
+      int fanSpeed = ac.getFan(); 
+      int rotationValue;
+      if (fanSpeed == 0) {
+          rotationValue = 100;
+      } else if (fanSpeed == 1) {
+          rotationValue = 75;
+      } else if (fanSpeed == 2) {
+          rotationValue = 50;
+      } else if (fanSpeed == 3) {
+          rotationValue = 25;
+      }
+      rotationSpeed->setVal(rotationValue);
       irrecv.resume(); // Receive the next value
     }
   }
@@ -137,7 +148,6 @@ public:
     // Send IR command for cooling mode with specified settings
     irrecv.pause(); // Disable IR receiver
     irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
-
     irrecv.resume(); // Re-enable IR receiver
     return true;
     }
