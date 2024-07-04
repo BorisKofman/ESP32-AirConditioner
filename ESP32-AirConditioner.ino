@@ -86,7 +86,6 @@ public:
       currentState->setVal(ac.getMode());
       coolingTemp->setVal(ac.getTemp());
       rotationSpeed->setVal(ac.getFan());
-      swingMode->setVal(ac.getSwing());
       irrecv.resume(); // Receive the next value
     }
   }
@@ -108,9 +107,9 @@ public:
     if (active->getNewVal() == 0) {
       // Turn Off the AC
       ac.setPower(false); // Send IR command to turn off the AC
-      irrecv.disableIRIn(); // Disable IR receiver
+      irrecv.pause(); // Disable IR receiver
       irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
-      irrecv.enableIRIn(); // Re-enable IR receiver
+      irrecv.resume(); // Re-enable IR receiver
       return true;
     } else if (active->getNewVal() == 1) {
       // Turn On the AC
@@ -138,7 +137,7 @@ public:
       }
  
     // Send IR command for cooling mode with specified settings
-    irrecv.disableIRIn(); // Disable IR receiver
+    irrecv.pause(); // Disable IR receiver
     irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
     irrecv.enableIRIn(); // Re-enable IR receiver
     return true;
