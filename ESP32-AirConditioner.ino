@@ -139,7 +139,7 @@ public:
     // Send IR command for cooling mode with specified settings
     irrecv.pause(); // Disable IR receiver
     irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
-    irrecv.enableIRIn(); // Re-enable IR receiver
+    irrecv.resume(); // Re-enable IR receiver
     return true;
     }
   } 
