@@ -85,6 +85,7 @@ public:
       active->setVal(ac.getPower());
       currentState->setVal(ac.getMode());
       coolingTemp->setVal(ac.getTemp());
+      
     }
   }
 
@@ -105,6 +106,8 @@ public:
     if (active->getNewVal() == 0) {
       // Turn Off the AC
       ac.setPower(false); // Send IR command to turn off the AC
+      irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
+      return true;
     } else if (active->getNewVal() == 1) {
       // Turn On the AC
       ac.setPower(true); // Ensure the AC is on
@@ -150,7 +153,7 @@ void setup() {
   homeSpan.begin(Category::AirConditioners, "Air Conditioner");
   homeSpan.setApTimeout(180); // Set the timeout to 180 seconds (adjust as needed)
   homeSpan.enableAutoStartAP();
-  // homeSpan.setControlCallback(pairUnpairCallback); // Set the pairing/unpairing callback function future 
+  // homeSpan.setControlCallback(pairUnpairCallback); // Set the pairing/unpairing callback function in the future 
 
 new SpanAccessory();
   new Service::AccessoryInformation();
@@ -158,7 +161,6 @@ new SpanAccessory();
     new Characteristic::Name("ESP32 Air Conditioner");
     new Characteristic::Model("ESP32 AC Model");
     new Characteristic::FirmwareRevision("1.0.1");
-
 
   new HeaterCooler();
 }
