@@ -86,6 +86,7 @@ public:
       currentState->setVal(ac.getMode());
       coolingTemp->setVal(ac.getTemp());
       rotationSpeed->setVal(ac.getFan());
+      swingMode->setVal(ac.getSwing());
       irrecv.resume(); // Receive the next value
     }
   }
