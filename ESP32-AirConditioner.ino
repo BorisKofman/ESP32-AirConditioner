@@ -108,7 +108,9 @@ public:
     if (active->getNewVal() == 0) {
       // Turn Off the AC
       ac.setPower(false); // Send IR command to turn off the AC
+      irrecv.disableIRIn(); // Disable IR receiver
       irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
+      irrecv.enableIRIn(); // Re-enable IR receiver
       return true;
     } else if (active->getNewVal() == 1) {
       // Turn On the AC
@@ -124,23 +126,21 @@ public:
       ac.setSwing(swingMode->getNewVal());  // Set swing mode
       int state = targetState->getNewVal();
       currentState->setVal(state == 0 ? 1 : (state == 1 ? 2 : 3)); // Set current state based on target state
-      switch (state) {
-      case 0:
-          ac.setMode(kGoodweatherAuto);
-          ac.setTemp(coolingTemp->getNewVal());  // Set temperature
-          break;
-      case 1:
-          ac.setMode(kGoodweatherHeat);
-          ac.setTemp(heatingTemp->getNewVal());  // Set temperature
-          break;
-      case 2:
-          ac.setMode(kGoodweatherCool);
-          ac.setTemp(coolingTemp->getNewVal());  // Set temperature
-          break;
+      if (state == 0) { // Auto
+        ac.setMode(kGoodweatherAuto);
+        ac.setTemp(coolingTemp->getNewVal());  // Set temperature
+      } else if (state == 1) { // Heating
+        ac.setTemp(heatingTemp->getNewVal());  // Set temperature
+        ac.setMode(kGoodweatherHeat);  //
+      } else if (state == 2) { // Cooling
+        ac.setMode(kGoodweatherCool);  // Set mode to cooling
+        ac.setTemp(coolingTemp->getNewVal());  // Set temperature
       }
  
     // Send IR command for cooling mode with specified settings
+    irrecv.disableIRIn(); // Disable IR receiver
     irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
+    irrecv.enableIRIn(); // Re-enable IR receiver
     return true;
     }
   } 
@@ -176,6 +176,7 @@ if (irrecv.decode(&results)) {
         Serial.println(irType);
     }
     preferences.end();  // Close NVS storage
+    irrecv.resume(); // Receive the next value
 }
   homeSpan.poll();
 }
