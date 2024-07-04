@@ -85,7 +85,8 @@ public:
       active->setVal(ac.getPower());
       currentState->setVal(ac.getMode());
       coolingTemp->setVal(ac.getTemp());
-      
+      coolingTemp->setVal(ac.getTemp());
+      irrecv.resume(); // Receive the next value
     }
   }
 
