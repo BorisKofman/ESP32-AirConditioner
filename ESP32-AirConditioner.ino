@@ -162,9 +162,6 @@ new SpanAccessory();
     new Characteristic::Model("ESP32 AC Model");
     new Characteristic::FirmwareRevision("1.0.1");
 
-
-
-
   new HeaterCooler();
 }
 
