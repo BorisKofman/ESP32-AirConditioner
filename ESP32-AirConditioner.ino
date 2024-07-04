@@ -37,9 +37,7 @@ IRsend irsend(kIrLedPin);
 // Initialize the object with send pin only
 IRGoodweatherAc ac(kIrLedPin);
 
-
 Preferences preferences;
-
 
 class HeaterCooler : public Service::HeaterCooler {
   SpanCharacteristic *active;
@@ -139,6 +137,7 @@ public:
     // Send IR command for cooling mode with specified settings
     irrecv.pause(); // Disable IR receiver
     irsend.sendGoodweather(ac.getRaw(), kGoodweatherBits);
+
     irrecv.resume(); // Re-enable IR receiver
     return true;
     }
