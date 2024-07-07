@@ -1,7 +1,7 @@
 #include "HomeSpan.h"
 #include <DHT.h>
 
-//For IR 
+// For IR
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
@@ -12,7 +12,6 @@
 #include <ir_Goodweather.h>
 
 #define DHT_PIN 21  // DHT11 sensor pin
-//define DHT_TYPE DHT22
 #define DHT_TYPE DHT11
 
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -28,10 +27,10 @@ const uint16_t kCaptureBufferSize = 1024;
 const uint8_t kTimeout = 50;  // Timeout for A/C messages
 const uint8_t kTolerancePercentage = kTolerance;
 
-//IR receiver
+// IR receiver
 IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeout, true);
 decode_results results;
-//IR transmiter 
+// IR transmitter 
 IRsend irsend(kIrLedPin);
 
 // Initialize the object with send pin only
@@ -79,6 +78,15 @@ public:
       readTemperatureAndHumidity();
     }
     if (irrecv.decode(&results)) {
+    preferences.begin("ac_ctrl", false);  // Re-open NVS storage with namespace "esp32_air_conditioner"
+    String irType = typeToString(results.decode_type);
+
+      if (!preferences.isKey("irType") && preferences.putString("irType", irType)) {
+          Serial.println(irType);
+          preferences.end();  // Close NVS storage
+          irrecv.resume(); // Receive the next value
+      } else {
+      preferences.end();  // Close NVS storage
       ac.setRaw(results.value);  // Set the internal state from the received IR signal
       active->setVal(ac.getPower());
       currentState->setVal(ac.getMode());
@@ -96,6 +104,7 @@ public:
       }
       rotationSpeed->setVal(rotationValue);
       irrecv.resume(); // Receive the next value
+      }
     }
   }
 
@@ -163,9 +172,8 @@ void setup() {
   homeSpan.begin(Category::AirConditioners, "Air Conditioner");
   homeSpan.setApTimeout(180); // Set the timeout to 180 seconds (adjust as needed)
   homeSpan.enableAutoStartAP();
-  // homeSpan.setControlCallback(pairUnpairCallback); // Set the pairing/unpairing callback function in the future 
 
-new SpanAccessory();
+  new SpanAccessory();
   new Service::AccessoryInformation();
     new Characteristic::Identify();
     new Characteristic::Name("ESP32 Air Conditioner");
@@ -176,16 +184,5 @@ new SpanAccessory();
 }
 
 void loop() {
-  // Check if the IR code has been received.
-if (irrecv.decode(&results)) {
-    preferences.begin("ac_ctrl", false);  // Re-open NVS storage with namespace "esp32_air_conditioner"
-    String irType = typeToString(results.decode_type);
-    if (!preferences.isKey("irType") && preferences.putString("irType", irType)) {
-        Serial.println(irType);
-    }
-    preferences.end();  // Close NVS storage
-    irrecv.resume(); // Receive the next value
-}
   homeSpan.poll();
 }
-
