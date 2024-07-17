@@ -11,7 +11,7 @@
 
 #include <ir_Goodweather.h>
 
-#define DHT_PIN 17  // DHT11 sensor pin
+#define DHT_PIN 5  // DHT11 sensor pin
 #define DHT_TYPE DHT22
 
 DHT dht(DHT_PIN, DHT_TYPE);
