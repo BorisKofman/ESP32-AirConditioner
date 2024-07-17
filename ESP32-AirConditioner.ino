@@ -11,16 +11,16 @@
 
 #include <ir_Goodweather.h>
 
-#define DHT_PIN 21  // DHT11 sensor pin
-#define DHT_TYPE DHT11
+#define DHT_PIN 17  // DHT11 sensor pin
+#define DHT_TYPE DHT22
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
 unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
 
-const uint16_t kIrLedPin = 4; // Define the GPIO pin for the IR LED
-const uint16_t kRecvPin = 14; // Pin where the IR receiver is connected
+const uint16_t kIrLedPin = 15; // Define the GPIO pin for the IR LED
+const uint16_t kRecvPin = 16; // Pin where the IR receiver is connected
 
 const uint32_t kBaudRate = 115200;
 const uint16_t kCaptureBufferSize = 1024;
@@ -116,6 +116,8 @@ public:
       int roundedTemp = round(temperature);
       currentTemp->setVal(roundedTemp);
       currentHumidity->setVal(humidity);
+      Serial.println(roundedTemp);
+      Serial.println(humidity);
     } else {
       Serial.println("Failed to read from DHT sensor!");
     }
