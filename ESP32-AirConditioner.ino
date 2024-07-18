@@ -25,7 +25,7 @@ unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
 
 const uint16_t kIrLedPin = 16; // Define the GPIO pin for the IR LED
-const uint16_t kRecvPin = 17; // Pin where the IR receiver is connected
+const uint16_t kRecvPin = 15; // Pin where the IR receiver is connected
 
 const uint32_t kBaudRate = 115200;
 const uint16_t kCaptureBufferSize = 1024;
@@ -176,7 +176,7 @@ void setup() {
   irrecv.enableIRIn();
 
   // homeSpan.setControlPin(DEVICE_CONTROL_PIN).setStatusPin(STATUS_LED_PIN);
-  homeSpan.setStatusPin(STATUS_LED_PIN).setControlPin(STATUS_LED_PIN);
+  homeSpan.setStatusPixel(STATUS_LED_PIN);
   homeSpan.begin(Category::AirConditioners, "Air Conditioner");
   homeSpan.enableWebLog();
   homeSpan.setApTimeout(300); // Set the timeout to 180 seconds (adjust as needed)
