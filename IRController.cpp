@@ -1,6 +1,5 @@
 #include "IRController.h"
 
-
 // Define constants for remote types
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
@@ -41,18 +40,11 @@ void IRController::handleIR() {
             preferences.end();  // Close NVS storage
             Serial.print(F("AC control type is configured: "));
             Serial.println(irType);
-        } else if (irType == GOODWEATHER) {
+            } 
+        else if (irType == GOODWEATHER) {
             // Handle GOODWEATHER remote signals
             goodweatherAc.setRaw(results.value);
-            Serial.println(goodweatherAc.getPower());
-            Serial.println("Before setVal");
-            if (active != nullptr) {
-                active->setVal(goodweatherAc.getPower()); // This line causes the issue
-                Serial.println("After setVal");
-            } else {
-                Serial.println("active is null");
-            }
-            // active->setVal(goodweatherAc.getPower());
+            active->setVal(goodweatherAc.getPower());
         }
         irrecv.resume(); // Receive the next value
     }

@@ -17,6 +17,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 IRController irController(kIrLedPin, kRecvPin, 1024, 50, true);
 
 class HeaterCooler : public Service::HeaterCooler {
+public:
     SpanCharacteristic *active;
     SpanCharacteristic *currentState;
     SpanCharacteristic *targetState;
@@ -28,12 +29,17 @@ class HeaterCooler : public Service::HeaterCooler {
     SpanCharacteristic *currentHumidity;
     SpanCharacteristic *swingMode;
 
-public:
     HeaterCooler() : Service::HeaterCooler() {
         dht.begin();
         irController.beginsend();
 
-        active = new Characteristic::Active(0, true); // default to Off, stored in NVS
+        active = new Characteristic::Active(0, true);
+        if (active == nullptr) {
+            Serial.println("Error initializing active characteristic");
+        } else {
+            Serial.println("Active characteristic initialized");
+        }
+
         currentState = new Characteristic::CurrentHeaterCoolerState(0, true);
         targetState = new Characteristic::TargetHeaterCoolerState(0, true);
         currentTemp = new Characteristic::CurrentTemperature(0);
@@ -42,11 +48,13 @@ public:
         rotationSpeed = new Characteristic::RotationSpeed(50, true);
         unit = new Characteristic::TemperatureDisplayUnits(0, true);
         currentHumidity = new Characteristic::CurrentRelativeHumidity(0);
-        swingMode = new Characteristic::SwingMode(0, true); 
+        swingMode = new Characteristic::SwingMode(0, true);
 
         coolingTemp->setRange(16, 31, 1);
         heatingTemp->setRange(16, 31, 1);
-        rotationSpeed->setRange(0, 100, 25); 
+        rotationSpeed->setRange(0, 100, 25);
+
+        irController.setCharacteristics(active, currentState, coolingTemp, rotationSpeed);
     }
 
     void loop() {
@@ -90,20 +98,18 @@ void setup() {
     BLEDevice::deinit(true);
 
     irController.beginreceive();
-    // homeSpan.setControlPin(DEVICE_CONTROL_PIN).setStatusPin(STATUS_LED_PIN);
     homeSpan.setStatusPixel(STATUS_LED_PIN);
     homeSpan.begin(Category::AirConditioners, "Air Conditioner");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
-
-    homeSpan.setApTimeout(300); // Set the timeout to 180 seconds (adjust as needed)
+    homeSpan.setApTimeout(300); // Set the timeout to 300 seconds (adjust as needed)
     homeSpan.enableAutoStartAP();
 
     new SpanAccessory();
     new Service::AccessoryInformation();
-        new Characteristic::Identify();
-        new Characteristic::Name("ESP32 Air Conditioner");
-        new Characteristic::Model("ESP32 AC Model");
-        new Characteristic::FirmwareRevision("1.0.1");
+    new Characteristic::Identify();
+    new Characteristic::Name("ESP32 Air Conditioner");
+    new Characteristic::Model("ESP32 AC Model");
+    new Characteristic::FirmwareRevision("1.0.1");
 
     new HeaterCooler();
 }
