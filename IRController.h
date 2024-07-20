@@ -24,18 +24,25 @@ private:
     SpanCharacteristic *coolingTemp;
     SpanCharacteristic *rotationSpeed;
 
-    const uint8_t kTolerancePercentage = 25; // Add this constant
+    uint16_t recvPin;  // Add this line
+    uint16_t sendPin; // Define the GPIO pin for the IR LED
+    uint16_t captureBufferSize;
+    uint8_t timeout;
+    bool debug;
+    // Other member variables...
+    
 
 public:
-    IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug = false);
-    void begin();
+    IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug = true);
+    void beginsend();
+    void beginreceive();
     void handleIR();
+    void getIRType(); // Add this line
     void sendCommand(bool power, int mode, int temp, int fan, bool swing);
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
 
 private:
     void setIRType(String type);
-    String getIRType();
     void decodeIR();
 };
 

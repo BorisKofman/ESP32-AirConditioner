@@ -31,7 +31,7 @@ class HeaterCooler : public Service::HeaterCooler {
 public:
     HeaterCooler() : Service::HeaterCooler() {
         dht.begin();
-        irController.begin();
+        irController.beginsend();
 
         active = new Characteristic::Active(0, true); // default to Off, stored in NVS
         currentState = new Characteristic::CurrentHeaterCoolerState(0, true); // Inactive, stored in NVS
@@ -47,8 +47,6 @@ public:
         coolingTemp->setRange(16, 31, 1); // Set valid range for cooling temperature
         heatingTemp->setRange(16, 31, 1); // Set valid range for heating temperature
         rotationSpeed->setRange(0, 100, 25); // Set valid range for rotation speed (0, 25, 50, ..., 100)
-
-        irController.setCharacteristics(active, currentState, coolingTemp, rotationSpeed);
     }
 
     void loop() {
@@ -80,6 +78,8 @@ public:
         int fan = rotationSpeed->getNewVal();
         bool swing = swingMode->getNewVal();
 
+        Serial.println(power);
+        Serial.println(mode);
         irController.sendCommand(power, mode, temp, fan, swing);
         return true;
     }
@@ -91,6 +91,7 @@ void setup() {
     // Disable BLE to save power
     BLEDevice::deinit(true);
 
+    irController.beginreceive();
     // homeSpan.setControlPin(DEVICE_CONTROL_PIN).setStatusPin(STATUS_LED_PIN);
     homeSpan.setStatusPixel(STATUS_LED_PIN);
     homeSpan.begin(Category::AirConditioners, "Air Conditioner");
