@@ -34,19 +34,19 @@ public:
         irController.beginsend();
 
         active = new Characteristic::Active(0, true); // default to Off, stored in NVS
-        currentState = new Characteristic::CurrentHeaterCoolerState(0, true); // Inactive, stored in NVS
-        targetState = new Characteristic::TargetHeaterCoolerState(0, true); // Auto, stored in NVS
+        currentState = new Characteristic::CurrentHeaterCoolerState(0, true);
+        targetState = new Characteristic::TargetHeaterCoolerState(0, true);
         currentTemp = new Characteristic::CurrentTemperature(0);
-        coolingTemp = new Characteristic::CoolingThresholdTemperature(24.0, true); // default cooling temp, stored in NVS
-        heatingTemp = new Characteristic::HeatingThresholdTemperature(27, true); // default heating temp, stored in NVS
-        rotationSpeed = new Characteristic::RotationSpeed(50, true); // default fan speed, stored in NVS
-        unit = new Characteristic::TemperatureDisplayUnits(0, true); // 0 for Celsius, stored in NVS
+        coolingTemp = new Characteristic::CoolingThresholdTemperature(24.0, true);
+        heatingTemp = new Characteristic::HeatingThresholdTemperature(27, true);
+        rotationSpeed = new Characteristic::RotationSpeed(50, true);
+        unit = new Characteristic::TemperatureDisplayUnits(0, true);
         currentHumidity = new Characteristic::CurrentRelativeHumidity(0);
-        swingMode = new Characteristic::SwingMode(0, true); // default to Swing Disabled, stored in NVS
+        swingMode = new Characteristic::SwingMode(0, true); 
 
-        coolingTemp->setRange(16, 31, 1); // Set valid range for cooling temperature
-        heatingTemp->setRange(16, 31, 1); // Set valid range for heating temperature
-        rotationSpeed->setRange(0, 100, 25); // Set valid range for rotation speed (0, 25, 50, ..., 100)
+        coolingTemp->setRange(16, 31, 1);
+        heatingTemp->setRange(16, 31, 1);
+        rotationSpeed->setRange(0, 100, 25); 
     }
 
     void loop() {
@@ -78,8 +78,6 @@ public:
         int fan = rotationSpeed->getNewVal();
         bool swing = swingMode->getNewVal();
 
-        Serial.println(power);
-        Serial.println(mode);
         irController.sendCommand(power, mode, temp, fan, swing);
         return true;
     }

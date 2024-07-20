@@ -1,13 +1,14 @@
 #ifndef IR_CONTROLLER_H
 #define IR_CONTROLLER_H
 
+#include "HomeSpan.h"
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
 #include <ir_Goodweather.h>
 #include <ir_Airton.h>
 #include <Preferences.h>
-#include "HomeSpan.h"
+
 
 class IRController {
 private:
@@ -23,7 +24,8 @@ private:
     SpanCharacteristic *currentState;
     SpanCharacteristic *coolingTemp;
     SpanCharacteristic *rotationSpeed;
-
+    SpanCharacteristic *targetState;
+    
     uint16_t recvPin;  // Add this line
     uint16_t sendPin; // Define the GPIO pin for the IR LED
     uint16_t captureBufferSize;
@@ -37,7 +39,7 @@ public:
     void beginsend();
     void beginreceive();
     void handleIR();
-    void getIRType(); // Add this line
+    void getIRType();
     void sendCommand(bool power, int mode, int temp, int fan, bool swing);
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
 
