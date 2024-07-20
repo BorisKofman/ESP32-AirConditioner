@@ -6,6 +6,7 @@ IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureB
 
 void IRController::begin() {
     irsend.begin();
+    irrecv.setTolerance(kTolerancePercentage); // Use kTolerancePercentage here
     irrecv.enableIRIn();
     irType = getIRType();
 }
@@ -72,6 +73,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         airtonAc.setTemp(temp);
         airtonAc.setFan(fan);
         airtonAc.setSwingV(swing);
+        airtonAc.getLight(on)
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
     } else {
         Serial.println("AC control type is not configured. Configuration needed.");

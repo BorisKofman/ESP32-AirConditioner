@@ -12,11 +12,9 @@ const unsigned long readInterval = 10000; // 10 seconds
 const uint16_t kIrLedPin = 16; // Define the GPIO pin for the IR LED
 const uint16_t kRecvPin = 15; // Pin where the IR receiver is connected
 const uint32_t kBaudRate = 115200;
-const uint16_t kCaptureBufferSize = 1024;
-const uint8_t kTimeout = 50;  // Timeout for A/C messages
 
 DHT dht(DHT_PIN, DHT_TYPE);
-IRController irController(kIrLedPin, kRecvPin, kCaptureBufferSize, kTimeout, true);
+IRController irController(kIrLedPin, kRecvPin, 1024, 50, true);
 
 class HeaterCooler : public Service::HeaterCooler {
     SpanCharacteristic *active;

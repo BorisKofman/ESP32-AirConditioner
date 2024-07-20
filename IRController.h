@@ -24,6 +24,8 @@ private:
     SpanCharacteristic *coolingTemp;
     SpanCharacteristic *rotationSpeed;
 
+    const uint8_t kTolerancePercentage = 25; // Add this constant
+
 public:
     IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug = false);
     void begin();
