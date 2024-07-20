@@ -1,46 +1,38 @@
 #include "HomeSpan.h"
 #include <DHT.h>
-
-// For IR
+#include <BLEDevice.h> 
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
 
 #include <Preferences.h>  // For NVS
+#include <ir_Goodweather.h>
+
 
 // // // Define the status LED and device control pins
 #define STATUS_LED_PIN 48  // pin for status LED
 // #define DEVICE_CONTROL_PIN 32  // Example pin for device control
-
-#include <ir_Goodweather.h>
-
 #define DHT_PIN 5  // DHT11 sensor pin
 #define DHT_TYPE DHT22
 
-DHT dht(DHT_PIN, DHT_TYPE);
-
-
 unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
-
 const uint16_t kIrLedPin = 16; // Define the GPIO pin for the IR LED
 const uint16_t kRecvPin = 15; // Pin where the IR receiver is connected
-
 const uint32_t kBaudRate = 115200;
 const uint16_t kCaptureBufferSize = 1024;
 const uint8_t kTimeout = 50;  // Timeout for A/C messages
 const uint8_t kTolerancePercentage = kTolerance;
 
+DHT dht(DHT_PIN, DHT_TYPE);
 // IR receiver
 IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeout, true);
 decode_results results;
 // IR transmitter 
 IRsend irsend(kIrLedPin);
-
 // Initialize the object with send pin only
 IRGoodweatherAc ac(kIrLedPin);
-
 Preferences preferences;
 
 class HeaterCooler : public Service::HeaterCooler {
@@ -175,10 +167,14 @@ void setup() {
   irrecv.setTolerance(kTolerancePercentage);
   irrecv.enableIRIn();
 
+  // Disable BLE to save power
+  BLEDevice::deinit(true);
+  
   // homeSpan.setControlPin(DEVICE_CONTROL_PIN).setStatusPin(STATUS_LED_PIN);
   homeSpan.setStatusPixel(STATUS_LED_PIN);
   homeSpan.begin(Category::AirConditioners, "Air Conditioner");
-  homeSpan.enableWebLog();
+  homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
+
   homeSpan.setApTimeout(300); // Set the timeout to 180 seconds (adjust as needed)
   homeSpan.enableAutoStartAP();
 
@@ -190,8 +186,10 @@ void setup() {
     new Characteristic::FirmwareRevision("1.0.1");
 
   new HeaterCooler();
+
 }
 
 void loop() {
   homeSpan.poll();
+
 }
