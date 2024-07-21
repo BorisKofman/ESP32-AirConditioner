@@ -33,13 +33,6 @@ public:
         dht.begin();
         irController.beginsend();
 
-        active = new Characteristic::Active(0, true);
-        if (active == nullptr) {
-            Serial.println("Error initializing active characteristic");
-        } else {
-            Serial.println("Active characteristic initialized");
-        }
-
         currentState = new Characteristic::CurrentHeaterCoolerState(0, true);
         targetState = new Characteristic::TargetHeaterCoolerState(0, true);
         currentTemp = new Characteristic::CurrentTemperature(0);

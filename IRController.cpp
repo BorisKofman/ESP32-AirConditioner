@@ -41,11 +41,20 @@ void IRController::handleIR() {
             Serial.print(F("AC control type is configured: "));
             Serial.println(irType);
             } 
-        else if (irType == GOODWEATHER) {
+        else if (irType == "GOODWEATHER") {
             // Handle GOODWEATHER remote signals
             goodweatherAc.setRaw(results.value);
             active->setVal(goodweatherAc.getPower());
-        }
+            currentState->setVal(goodweatherAc.getMode());
+            coolingTemp->setVal(goodweatherAc.getTemp());
+            } 
+        else if (irType == "AIRTON") {
+            // Handle GOODWEATHER remote signals
+            airtonAc.setRaw(results.value);
+            active->setVal(airtonAc.getPower());
+            currentState->setVal(airtonAc.getMode());
+            coolingTemp->setVal(airtonAc.getTemp());
+            } 
         irrecv.resume(); // Receive the next value
     }
 }
@@ -64,7 +73,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         } else if (mode == 2) { // Cooling
           goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
         }
-      goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
+        goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
         (fan <= 50) ? kGoodweatherFanMed :
         (fan <= 75) ? kGoodweatherFanHigh :
                       kGoodweatherFanAuto);
@@ -74,13 +83,23 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         irrecv.resume();
         Serial.println("Sending GOODWEATHER");
     } else if (irType == "AIRTON") {
+        irrecv.pause();
+        delay(10);  
         airtonAc.setPower(power);
-        airtonAc.setMode(mode);
+        if ( mode == 0) { // Auto
+          airtonAc.setMode(kAirtonAuto);
+        } else if (mode == 1) { // Heating
+          airtonAc.setMode(kAirtonHeat);  //
+        } else if (mode == 2) { // Cooling
+          airtonAc.setMode(kAirtonCool);  // Set mode to cooling
+        }
+        airtonAc.setFan((fan <= 25) ? kAirtonFanLow :
+        (fan <= 50) ? kAirtonFanMed :
+        (fan <= 75) ? kAirtonFanHigh :
+                      kAirtonFanAuto);
         airtonAc.setTemp(temp);
-        airtonAc.setFan(fan);
         airtonAc.setSwingV(swing);
         airtonAc.setLight("on");
-        irrecv.pause();
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
         irrecv.resume();
         Serial.println("Sended AIRTON");
