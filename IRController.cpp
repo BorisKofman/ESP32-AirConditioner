@@ -81,7 +81,6 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         goodweatherAc.setSwing(swing);
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         irrecv.resume();
-        Serial.println("Sending GOODWEATHER");
     } else if (irType == "AIRTON") {
         irrecv.pause();
         delay(10);  
@@ -102,9 +101,8 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         airtonAc.setLight("on");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
         irrecv.resume();
-        Serial.println("Sended AIRTON");
     } else {
-        Serial.println("AC control type is not configured. Configuration needed.");
+        Serial.println("AC control type is not configured.");
     }
 }
 
