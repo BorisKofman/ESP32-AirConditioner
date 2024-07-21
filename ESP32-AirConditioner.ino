@@ -33,6 +33,7 @@ public:
         dht.begin();
         irController.beginsend();
 
+        active = new Characteristic::Active(0, true);
         currentState = new Characteristic::CurrentHeaterCoolerState(0, true);
         targetState = new Characteristic::TargetHeaterCoolerState(0, true);
         currentTemp = new Characteristic::CurrentTemperature(0);

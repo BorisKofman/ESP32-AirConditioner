@@ -32,7 +32,7 @@ public:
     SpanCharacteristic *coolingTemp;
     SpanCharacteristic *rotationSpeed;
     SpanCharacteristic *targetState;
-
+    
     IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug);
     void beginsend();
     void beginreceive();

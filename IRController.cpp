@@ -41,14 +41,14 @@ void IRController::handleIR() {
             Serial.print(F("AC control type is configured: "));
             Serial.println(irType);
             } 
-        else if (irType == "GOODWEATHER") {
+        else if (irType == GOODWEATHER) {
             // Handle GOODWEATHER remote signals
             goodweatherAc.setRaw(results.value);
             active->setVal(goodweatherAc.getPower());
             currentState->setVal(goodweatherAc.getMode());
             coolingTemp->setVal(goodweatherAc.getTemp());
             } 
-        else if (irType == "AIRTON") {
+        else if (irType == AIRTON) {
             // Handle GOODWEATHER remote signals
             airtonAc.setRaw(results.value);
             active->setVal(airtonAc.getPower());
@@ -81,7 +81,8 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         goodweatherAc.setSwing(swing);
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         irrecv.resume();
-    } else if (irType == "AIRTON") {
+        }   
+    else if (irType == "AIRTON") {
         irrecv.pause();
         delay(10);  
         airtonAc.setPower(power);
@@ -101,7 +102,8 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         airtonAc.setLight("on");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
         irrecv.resume();
-    } else {
+        } 
+    else {
         Serial.println("AC control type is not configured.");
     }
 }
