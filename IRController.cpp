@@ -46,12 +46,17 @@ void IRController::handleIR() {
         Serial.println(results.value);
         getIRType();  // Ensure irType is retrieved before proceeding
         if (irType == "UNKNOWN" || irType == "") {
-            preferences.begin("ac_ctrl", false);  // Re-open
-            String type = typeToString(results.decode_type);
-            preferences.putString("irType", type);
-            preferences.end();  // Close NVS storage
-            Serial.print(F("AC control type is configured: "));
-            Serial.println(irType);
+            if (results.decode_type == decode_type_t::UNKNOWN) {
+              Serial.print(F("AC control type not configured: UNKNOWN "));
+              return;  // Exit the function
+            } else {
+              preferences.begin("ac_ctrl", false);  // Re-open
+              String type = typeToString(results.decode_type);
+              preferences.putString("irType", type);
+              preferences.end();  // Close NVS storage
+              Serial.print(F("AC control type is configured: "));
+              Serial.println(irType);
+              }
             } 
         else if (irType == GOODWEATHER) {
             // Handle GOODWEATHER remote signals

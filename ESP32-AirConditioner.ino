@@ -14,7 +14,7 @@ const uint16_t recvPin = 15; // Pin where the IR receiver is connected
 const uint32_t kBaudRate = 115200;
 
 DHT dht(DHT_PIN, DHT_TYPE);
-IRController irController(sendPin, recvPin, 1024, 50, false);
+IRController irController(sendPin, recvPin, 1024, 50, true);
 
 class HeaterCooler : public Service::HeaterCooler {
 public:
