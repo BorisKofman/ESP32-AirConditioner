@@ -8,16 +8,26 @@ const uint8_t kTolerancePercentage = kTolerance;
 
 
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
-    : irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin) {
+    : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
+      irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin) {
 }
 
+
 void IRController::beginsend() {
+    irsend.enableIROut(38000, 50); 
     irsend.begin();
+    Serial.println("send pin");
+    Serial.print(sendPin);
+
 }
 
 void IRController::beginreceive() {
     irrecv.setTolerance(kTolerancePercentage); // Use kTolerancePercentage here
-    Serial.println(recvPin);
+    Serial.println("receiver pin");
+    Serial.print(recvPin);
+    Serial.print(captureBufferSize);
+    Serial.print(timeout);
+    Serial.print(debug);
     irrecv.enableIRIn();
 }
 
@@ -31,7 +41,9 @@ void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteri
 void IRController::handleIR() {
 
     decode_results results;
+
     if (irrecv.decode(&results)) {
+        Serial.println(results.value);
         getIRType();  // Ensure irType is retrieved before proceeding
         if (irType == "UNKNOWN" || irType == "") {
             preferences.begin("ac_ctrl", false);  // Re-open
@@ -63,8 +75,8 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
  // Convert mode if necessary
     getIRType();  //  // Ensure irType is retrieved before using it
     if (irType == "GOODWEATHER") {
-      irrecv.pause();
-      delay(10);  
+      irrecv.disableIRIn();
+      delay(15);  
       goodweatherAc.setPower(power);
       if ( mode == 0) { // Auto
           goodweatherAc.setMode(kGoodweatherAuto);
@@ -80,11 +92,13 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         goodweatherAc.setTemp(temp);
         goodweatherAc.setSwing(swing);
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-        irrecv.resume();
+        delay(20);  // Short delay to ensure the command is sent
+        irrecv.enableIRIn();  // Resume IR receiver
+        Serial.println("GOOD");
         }   
     else if (irType == "AIRTON") {
         irrecv.pause();
-        delay(10);  
+        delay(15);  
         airtonAc.setPower(power);
         if ( mode == 0) { // Auto
           airtonAc.setMode(kAirtonAuto);
@@ -125,6 +139,5 @@ void IRController::decodeIR() {
     if (irrecv.decode(&results)) {
         irType = typeToString(results.decode_type);
         setIRType(irType);
-        irrecv.resume(); // Receive the next value
     }
 }

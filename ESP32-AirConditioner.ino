@@ -4,17 +4,17 @@
 #include "IRController.h"
 
 #define STATUS_LED_PIN 48  // pin for status LED
-#define DHT_PIN 5  // DHT11 sensor pin
+#define DHT_PIN 16  // DHT11 sensor pin
 #define DHT_TYPE DHT22
 
 unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
-const uint16_t kIrLedPin = 16; // Define the GPIO pin for the IR LED
-const uint16_t kRecvPin = 15; // Pin where the IR receiver is connected
+const uint16_t sendPin = 4; // Define the GPIO pin for the IR LED
+const uint16_t recvPin = 15; // Pin where the IR receiver is connected
 const uint32_t kBaudRate = 115200;
 
 DHT dht(DHT_PIN, DHT_TYPE);
-IRController irController(kIrLedPin, kRecvPin, 1024, 50, true);
+IRController irController(sendPin, recvPin, 1024, 50, false);
 
 class HeaterCooler : public Service::HeaterCooler {
 public:
@@ -95,7 +95,7 @@ void setup() {
     homeSpan.setStatusPixel(STATUS_LED_PIN);
     homeSpan.begin(Category::AirConditioners, "Air Conditioner");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
-    homeSpan.setApTimeout(300); // Set the timeout to 300 seconds (adjust as needed)
+    homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
 
     new SpanAccessory();
