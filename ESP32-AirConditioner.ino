@@ -92,7 +92,7 @@ void setup() {
     BLEDevice::deinit(true);
 
     irController.beginreceive();
-    homeSpan.setStatusPixel(STATUS_LED_PIN);
+    homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.begin(Category::AirConditioners, "Air Conditioner");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
