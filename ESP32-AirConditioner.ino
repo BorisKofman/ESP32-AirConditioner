@@ -37,7 +37,7 @@ public:
         currentState = new Characteristic::CurrentHeaterCoolerState(0, true);
         targetState = new Characteristic::TargetHeaterCoolerState(0, true);
         currentTemp = new Characteristic::CurrentTemperature(0);
-        coolingTemp = new Characteristic::CoolingThresholdTemperature(24.0, true);
+        coolingTemp = new Characteristic::CoolingThresholdTemperature(24, true);
         heatingTemp = new Characteristic::HeatingThresholdTemperature(27, true);
         rotationSpeed = new Characteristic::RotationSpeed(50, true);
         unit = new Characteristic::TemperatureDisplayUnits(0, true);
