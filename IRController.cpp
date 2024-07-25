@@ -76,7 +76,7 @@ void IRController::handleIR() {
                 coolingTemp->setVal(airtonAc.getTemp());
             }
         }
-        irrecv.resume(); // Receive the next value
+        irrecv.resume(); 
     }
 }
 
