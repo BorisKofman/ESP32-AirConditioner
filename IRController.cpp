@@ -59,19 +59,23 @@ void IRController::handleIR() {
               }
             } 
         else if (irType == GOODWEATHER) {
-            // Handle GOODWEATHER remote signals
             goodweatherAc.setRaw(results.value);
             active->setVal(goodweatherAc.getPower());
-            currentState->setVal(goodweatherAc.getMode());
-            coolingTemp->setVal(goodweatherAc.getTemp());
-            } 
+            
+            if (goodweatherAc.getPower() != 0) {
+                currentState->setVal(goodweatherAc.getMode());
+                coolingTemp->setVal(goodweatherAc.getTemp());
+            }
+        }
         else if (irType == AIRTON) {
-            // Handle GOODWEATHER remote signals
             airtonAc.setRaw(results.value);
             active->setVal(airtonAc.getPower());
-            currentState->setVal(airtonAc.getMode());
-            coolingTemp->setVal(airtonAc.getTemp());
-            } 
+            
+            if (airtonAc.getPower() != 0) {
+                currentState->setVal(airtonAc.getMode());
+                coolingTemp->setVal(airtonAc.getTemp());
+            }
+        }
         irrecv.resume(); // Receive the next value
     }
 }
