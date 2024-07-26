@@ -14,7 +14,7 @@ const uint16_t recvPin = 15; // Pin where the IR receiver is connected
 const uint32_t kBaudRate = 115200;
 
 DHT dht(DHT_PIN, DHT_TYPE);
-IRController irController(sendPin, recvPin, 1024, 50, true);
+IRController irController(sendPin, recvPin, 1024, 50, false);
 
 class HeaterCooler : public Service::HeaterCooler {
 public:
@@ -91,7 +91,8 @@ void setup() {
     // Disable BLE to save power
     BLEDevice::deinit(true);
 
-    irController.beginreceive();
+    irController.beginreceive(); 
+    
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.begin(Category::AirConditioners, "Air Conditioner");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
