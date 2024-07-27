@@ -5,6 +5,7 @@
 #define AIRTON "AIRTON"
 
 const uint8_t kTolerancePercentage = kTolerance;
+const uint16_t kMinUnknownSize = 12;
 
 
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
@@ -23,6 +24,7 @@ void IRController::beginsend() {
 
 void IRController::beginreceive() {
     irrecv.setTolerance(kTolerancePercentage);
+    irrecv.setUnknownThreshold(kMinUnknownSize);
     Serial.println("receiver pin");
     Serial.print(recvPin);
     Serial.print(captureBufferSize);
@@ -38,28 +40,79 @@ void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteri
     this->rotationSpeed = rotationSpeed;
 }
 
+// void IRController::handleIR() {
+//     decode_results results;
+//     if (irrecv.decode(&results)) {
+//         getIRType();  // Ensure irType is retrieved before proceeding
+//         String type = typeToString(results.decode_type);
+//         if (irType == "UNKNOWN" || irType == "") {
+//             if (results.decode_type == decode_type_t::UNKNOWN) {
+//               Serial.print(F("AC control type not configured: UNKNOWN "));
+//               irrecv.resume();
+//               return;  // Exit the function
+//             } else {
+//               preferences.begin("ac_ctrl", false);  // Re-open
+//               preferences.putString("irType", type);
+//               preferences.end();  // Close NVS storage
+//               Serial.print(F("AC control type is configured: "));
+//               Serial.println(type);
+//               Serial.println("here");
+
+//             }
+//             Serial.println("test");
+//             Serial.println(type);
+//             irrecv.resume();   
+//             return;
+//         }
+//         else if (irType == GOODWEATHER) {
+//             goodweatherAc.setRaw(results.value);
+//             active->setVal(goodweatherAc.getPower());
+            
+//             if (goodweatherAc.getPower() != 0) {
+//                 currentState->setVal(goodweatherAc.getMode());
+//                 coolingTemp->setVal(goodweatherAc.getTemp());
+//             }
+//         }
+//         else if (irType == AIRTON) {
+//             airtonAc.setRaw(results.value);
+//             active->setVal(airtonAc.getPower());
+            
+//             if (airtonAc.getPower() != 0) {
+//                 currentState->setVal(airtonAc.getMode());
+//                 coolingTemp->setVal(airtonAc.getTemp());
+//             }
+//         }
+
+//         irrecv.resume(); 
+//     }
+//     irrecv.resume(); 
+// }
+
+
 void IRController::handleIR() {
-
     decode_results results;
-
     if (irrecv.decode(&results)) {
-        getIRType();  // Ensure irType is retrieved before proceeding
         String type = typeToString(results.decode_type);
-        Serial.println(irType);
+        if (type == "UNKNOWN") {
+          Serial.println("Dropping UNKNOWN"); //noise 
+          irrecv.resume(); 
+          return;
+        } 
+        Serial.print("Received signal from: ");
+        Serial.println(type);
+        getIRType();  // Ensure irType is retrieved before proceeding
         if (irType == "UNKNOWN" || irType == "") {
-            if (type == "UNKNOWN" ) {
-              Serial.print(F("AC control type not configured: UNKNOWN "));
-              return;  // Exit the function
-            } else {
-              preferences.begin("ac_ctrl", false);  // Re-open
-              preferences.putString("irType", type);
-              preferences.end();  // Close NVS storage
-              Serial.print(F("AC control type is configured: "));
-              Serial.println(type);
-            }
-            Serial.println(type);  
-          }
-        else if (irType == GOODWEATHER) {
+          preferences.begin("ac_ctrl", false);  // Re-open
+          preferences.putString("irType", type);
+          preferences.end();  // Close NVS storage
+          Serial.print("AC control type is configured: ");
+          Serial.println(type);
+          irrecv.resume(); 
+          return;
+        } else {
+          Serial.print("AC control Alrady configured protocol: ");
+          Serial.println(irType);
+          if (irType == GOODWEATHER) {
             goodweatherAc.setRaw(results.value);
             active->setVal(goodweatherAc.getPower());
             
@@ -67,17 +120,19 @@ void IRController::handleIR() {
                 currentState->setVal(goodweatherAc.getMode());
                 coolingTemp->setVal(goodweatherAc.getTemp());
             }
-        }
-        else if (irType == AIRTON) {
-            airtonAc.setRaw(results.value);
-            active->setVal(airtonAc.getPower());
-            
-            if (airtonAc.getPower() != 0) {
-                currentState->setVal(airtonAc.getMode());
-                coolingTemp->setVal(airtonAc.getTemp());
-            }
-        }
+          }
+          if (irType == AIRTON) {
+              airtonAc.setRaw(results.value);
+              active->setVal(airtonAc.getPower());
+              
+              if (airtonAc.getPower() != 0) {
+                  currentState->setVal(airtonAc.getMode());
+                  coolingTemp->setVal(airtonAc.getTemp());
+              }
+          }
         irrecv.resume(); 
+        return; 
+        }
     }
 }
 
@@ -85,7 +140,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
  // Convert mode if necessary
     getIRType();  //  // Ensure irType is retrieved before using it
     if (irType == "GOODWEATHER") {
-      irrecv.disableIRIn();
+      irrecv.pause();
       delay(10);  
       goodweatherAc.setPower(power);
       if (power == 0) {
@@ -105,7 +160,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         }
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         delay(10);  // Short delay to ensure the command is sent
-        irrecv.enableIRIn();  // Resume IR receiver
+        irrecv.resume();  // Resume IR receiver
         }   
     else if (irType == "AIRTON") {
         irrecv.pause();
