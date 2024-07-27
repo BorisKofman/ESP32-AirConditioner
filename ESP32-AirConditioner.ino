@@ -79,7 +79,7 @@ public:
     boolean update() override {
         bool power = active->getNewVal() == 1;
         int mode = targetState->getNewVal();
-        int temp = (mode == 1) ? heatingTemp->getNewVal() : coolingTemp->getNewVal();
+        int temp = ( mode == 1) ? heatingTemp->getNewVal() : coolingTemp->getNewVal();
         int fan = rotationSpeed->getNewVal();
         bool swing = swingMode->getNewVal();
 

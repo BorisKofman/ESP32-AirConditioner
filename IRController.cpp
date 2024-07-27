@@ -40,55 +40,6 @@ void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteri
     this->rotationSpeed = rotationSpeed;
 }
 
-// void IRController::handleIR() {
-//     decode_results results;
-//     if (irrecv.decode(&results)) {
-//         getIRType();  // Ensure irType is retrieved before proceeding
-//         String type = typeToString(results.decode_type);
-//         if (irType == "UNKNOWN" || irType == "") {
-//             if (results.decode_type == decode_type_t::UNKNOWN) {
-//               Serial.print(F("AC control type not configured: UNKNOWN "));
-//               irrecv.resume();
-//               return;  // Exit the function
-//             } else {
-//               preferences.begin("ac_ctrl", false);  // Re-open
-//               preferences.putString("irType", type);
-//               preferences.end();  // Close NVS storage
-//               Serial.print(F("AC control type is configured: "));
-//               Serial.println(type);
-//               Serial.println("here");
-
-//             }
-//             Serial.println("test");
-//             Serial.println(type);
-//             irrecv.resume();   
-//             return;
-//         }
-//         else if (irType == GOODWEATHER) {
-//             goodweatherAc.setRaw(results.value);
-//             active->setVal(goodweatherAc.getPower());
-            
-//             if (goodweatherAc.getPower() != 0) {
-//                 currentState->setVal(goodweatherAc.getMode());
-//                 coolingTemp->setVal(goodweatherAc.getTemp());
-//             }
-//         }
-//         else if (irType == AIRTON) {
-//             airtonAc.setRaw(results.value);
-//             active->setVal(airtonAc.getPower());
-            
-//             if (airtonAc.getPower() != 0) {
-//                 currentState->setVal(airtonAc.getMode());
-//                 coolingTemp->setVal(airtonAc.getTemp());
-//             }
-//         }
-
-//         irrecv.resume(); 
-//     }
-//     irrecv.resume(); 
-// }
-
-
 void IRController::handleIR() {
     decode_results results;
     if (irrecv.decode(&results)) {
@@ -143,14 +94,14 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
       irrecv.pause();
       delay(10);  
       goodweatherAc.setPower(power);
-      if (power == 0) {
+      if ( power != 0) {
         if ( mode == 0) { // Auto
-            goodweatherAc.setMode(kGoodweatherAuto);
-          } else if (mode == 1) { // Heating
-            goodweatherAc.setMode(kGoodweatherHeat);  //
-          } else if (mode == 2) { // Cooling
-            goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
-          }
+          goodweatherAc.setMode(kGoodweatherAuto);
+        } else if (mode == 1) { // Heating
+          goodweatherAc.setMode(kGoodweatherHeat);  //
+        } else if (mode == 2) { // Cooling
+          goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
+        }
           goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
           (fan <= 50) ? kGoodweatherFanMed :
           (fan <= 75) ? kGoodweatherFanHigh :
@@ -161,12 +112,13 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         delay(10);  // Short delay to ensure the command is sent
         irrecv.resume();  // Resume IR receiver
+        return;
         }   
     else if (irType == "AIRTON") {
         irrecv.pause();
-        delay(20);  
+        delay(10);  
         airtonAc.setPower(power);
-        if (power == 0) {
+        if (power != 0) {
           if ( mode == 0) { // Auto
             airtonAc.setMode(kAirtonAuto);
           } else if (mode == 1) { // Heating
@@ -183,13 +135,14 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           airtonAc.setLight("on");
         }
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
-        delay(25);  // Short delay to ensure the command is sent 
+        delay(10);  // Short delay to ensure the command is sent 
         irrecv.resume();
+        return;
         } 
     else {
         Serial.println("AC control type is not configured.");
+        return;
     }
-  Serial.println("Signal.");
 }
 
 void IRController::getIRType() {
