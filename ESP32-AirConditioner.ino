@@ -59,6 +59,7 @@ public:
         if (currentTime - lastReadTime >= readInterval) {
             lastReadTime = currentTime;
             readTemperatureAndHumidity();
+            Serial.println(esp_get_free_heap_size());
         }
         irController.handleIR();
     }
