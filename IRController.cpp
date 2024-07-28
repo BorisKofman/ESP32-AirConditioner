@@ -47,6 +47,8 @@ void IRController::handleIR() {
         if (type == "UNKNOWN") {
           Serial.println("Dropping UNKNOWN"); //noise 
           irrecv.resume(); 
+          Serial.print("Current buffer usage: ");
+          Serial.println(results.rawlen);
           return;
         } 
         Serial.print("Received signal from: ");
@@ -72,7 +74,7 @@ void IRController::handleIR() {
                 coolingTemp->setVal(goodweatherAc.getTemp());
             }
           }
-          if (irType == AIRTON) {
+          else if (irType == AIRTON) {
               airtonAc.setRaw(results.value);
               active->setVal(airtonAc.getPower());
               
@@ -82,9 +84,14 @@ void IRController::handleIR() {
               }
           }
         irrecv.resume(); 
+        Serial.print("Current buffer usage: ");
+        Serial.println(results.rawlen);
         return; 
         }
+      irrecv.resume(); 
+      return; 
     }
+    clearDecodeResults(&results);
 }
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
@@ -149,4 +156,16 @@ void IRController::getIRType() {
     preferences.begin("ac_ctrl", true);
     irType = preferences.getString("irType", "");
     preferences.end();
+}
+
+void IRController::clearDecodeResults(decode_results *results) {
+  results->decode_type = UNKNOWN;
+  results->value = 0;
+  results->address = 0;
+  results->command = 0;
+  results->bits = 0;
+  results->rawlen = 0;
+  results->overflow = false;
+  results->repeat = false;
+  memset(results->state, 0, sizeof(results->state));
 }

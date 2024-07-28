@@ -38,12 +38,9 @@ public:
     void beginreceive();
     void handleIR();
     void getIRType();
+    void clearDecodeResults(decode_results *results);
     void sendCommand(bool power, int mode, int temp, int fan, bool swing);
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
-
-private:
-    void setIRType(String type);
-    void decodeIR();
 };
 
 #endif // IR_CONTROLLER_H
