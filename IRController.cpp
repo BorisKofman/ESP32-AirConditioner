@@ -51,7 +51,7 @@ void IRController::handleIR() {
         } 
         Serial.print("Received signal from: ");
         Serial.println(type);
-        getIRType();  // Ensure irType is retrieved before proceeding
+        String irType = getIRType();
         if (irType == "UNKNOWN" || irType == "") {
           preferences.begin("ac_ctrl", false);  // Re-open
           preferences.putString("irType", type);
@@ -89,7 +89,7 @@ void IRController::handleIR() {
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
  // Convert mode if necessary
-    getIRType();  //  // Ensure irType is retrieved before using it
+    String irType = getIRType();
     if (irType == "GOODWEATHER") {
       irrecv.pause();
       delay(10);  
@@ -145,8 +145,10 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
     }
 }
 
-void IRController::getIRType() {
+String IRController::getIRType() {
     preferences.begin("ac_ctrl", true);
-    irType = preferences.getString("irType", "");
+    String irType = preferences.getString("irType", "");
     preferences.end();
+    return irType; 
 }
+

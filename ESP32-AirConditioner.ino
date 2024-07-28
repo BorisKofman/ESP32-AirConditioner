@@ -2,6 +2,9 @@
 #include <DHT.h>
 #include <BLEDevice.h>
 #include "IRController.h"
+#include <ESPAsyncWebServer.h>
+
+AsyncWebServer server(80);
 
 #define STATUS_LED_PIN 48  // pin for status LED
 #define DHT_PIN 16  // DHT11 sensor pin
@@ -110,6 +113,24 @@ void setup() {
     new Characteristic::FirmwareRevision("1.0.1");
 
     new HeaterCooler();
+
+    server.on("/setting", HTTP_GET, [](AsyncWebServerRequest *request){
+      // Get the preference value
+      String preferenceValue = irController.getIRType();
+
+      // Create the HTML page with the preference value and reset button
+      String html = "<html><body><h1>ESP32 Settings</h1><p>Preference Value: " + preferenceValue + "</p><button onclick=\"location.href='/unpair'\">Unpair HomeKit</button></body></html>";
+      request->send(200, "text/html", html);
+    });
+
+    // Route to unpair HomeKit
+    server.on("/unpair", HTTP_GET, [](AsyncWebServerRequest *request){
+      homeSpan.processSerialCommand("F");  // Unpair HomeKit
+      request->send(200, "text/plain", "HomeKit unpaired");
+      Serial.println("HomeKit unpaired");
+    });
+
+    server.begin();
 }
 
 void loop() {
