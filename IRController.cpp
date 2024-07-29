@@ -25,11 +25,6 @@ void IRController::beginsend() {
 void IRController::beginreceive() {
     irrecv.setTolerance(kTolerancePercentage);
     irrecv.setUnknownThreshold(kMinUnknownSize);
-    Serial.println("receiver pin");
-    Serial.print(recvPin);
-    Serial.print(captureBufferSize);
-    Serial.print(timeout);
-    Serial.print(debug);
     irrecv.enableIRIn();
 }
 
@@ -63,7 +58,7 @@ void IRController::handleIR() {
         } else {
           Serial.print("AC control Alrady configured protocol: ");
           Serial.println(irType);
-          if (irType == GOODWEATHER) {
+          if (irType == GOODWEATHER && type == GOODWEATHER) {
             goodweatherAc.setRaw(results.value);
             active->setVal(goodweatherAc.getPower());
             
@@ -72,7 +67,7 @@ void IRController::handleIR() {
                 coolingTemp->setVal(goodweatherAc.getTemp());
             }
           }
-          if (irType == AIRTON) {
+          else if (irType == AIRTON && type == AIRTON) {
               airtonAc.setRaw(results.value);
               active->setVal(airtonAc.getPower());
               
@@ -81,10 +76,18 @@ void IRController::handleIR() {
                   coolingTemp->setVal(airtonAc.getTemp());
               }
           }
+          else {
+            Serial.print("Skiping");
+            irrecv.resume(); 
+            return; 
+          }
         irrecv.resume(); 
         return; 
         }
+      irrecv.resume(); 
+      return; 
     }
+    clearDecodeResults(&results);
 }
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
@@ -149,4 +152,16 @@ void IRController::getIRType() {
     preferences.begin("ac_ctrl", true);
     irType = preferences.getString("irType", "");
     preferences.end();
+}
+
+void IRController::clearDecodeResults(decode_results *results) {
+  results->decode_type = UNKNOWN;
+  results->value = 0;
+  results->address = 0;
+  results->command = 0;
+  results->bits = 0;
+  results->rawlen = 0;
+  results->overflow = false;
+  results->repeat = false;
+  memset(results->state, 0, sizeof(results->state));
 }
