@@ -42,8 +42,6 @@ void IRController::handleIR() {
         if (type == "UNKNOWN") {
           Serial.println("Dropping UNKNOWN"); //noise 
           irrecv.resume(); 
-          Serial.print("Current buffer usage: ");
-          Serial.println(results.rawlen);
           return;
         } 
         Serial.print("Received signal from: ");
@@ -84,8 +82,6 @@ void IRController::handleIR() {
             return; 
           }
         irrecv.resume(); 
-        Serial.print("Current buffer usage: ");
-        Serial.println(results.rawlen);
         return; 
         }
       irrecv.resume(); 
