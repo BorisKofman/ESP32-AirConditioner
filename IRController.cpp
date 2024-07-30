@@ -72,8 +72,7 @@ void IRController::handleIR() {
               active->setVal(airtonAc.getPower());
               
               if (airtonAc.getPower() != 0) {
-                  currentState->setVal(airtonAc.getMode());
-                  coolingTemp->setVal(airtonAc.getTemp());
+                  Serial.print(airtonAc.getMode());
               }
           }
           else {
