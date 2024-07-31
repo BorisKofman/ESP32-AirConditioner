@@ -53,6 +53,7 @@ void IRController::handleIR() {
           preferences.end();  // Close NVS storage
           Serial.print("AC control type is configured: ");
           Serial.println(type);
+          clearDecodeResults(&results);
           irrecv.resume(); 
           return;
         } else {
@@ -63,7 +64,23 @@ void IRController::handleIR() {
             active->setVal(goodweatherAc.getPower());
             
             if (goodweatherAc.getPower() != 0) {
-                currentState->setVal(goodweatherAc.getMode());
+                int mode = goodweatherAc.getMode();
+  
+                switch (mode) {
+                  case 0: //remote auto homekit auto
+                      currentState->setVal(0);
+                      break;
+                  case 4; //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
+                  case 1; //remote cooling homekit cooling 
+                      currentState->setVal(2);
+                      break;
+
+                  default:
+                      // Handle other cases or do nothing
+                      break;
+                }
                 coolingTemp->setVal(goodweatherAc.getTemp());
             }
           }
@@ -72,21 +89,39 @@ void IRController::handleIR() {
               active->setVal(airtonAc.getPower());
               
               if (airtonAc.getPower() != 0) {
-                  Serial.print(airtonAc.getMode());
+                  Serial.print();
+                int mode = airtonAc.getMode();
+
+                switch (mode) {
+                  case 0: //remote auto homekit auto
+                      currentState->setVal(0);
+                      break;
+                  case 1; //remote cooling homekit cooling 
+                      currentState->setVal(2);
+                      break;
+                  case 5; //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
+                  default:
+                      // Handle other cases or do nothing
+                      break;
+                }
+                coolingTemp->setVal(airtonAc.getTemp());
               }
           }
           else {
             Serial.print("Skiping");
+            clearDecodeResults(&results);
             irrecv.resume(); 
             return; 
           }
+        clearDecodeResults(&results);
         irrecv.resume(); 
         return; 
         }
       irrecv.resume(); 
       return; 
     }
-    clearDecodeResults(&results);
 }
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
