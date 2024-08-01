@@ -86,6 +86,8 @@ void IRController::handleIR() {
           }
           else if (irType == AIRTON && type == AIRTON) {
               airtonAc.setRaw(results.value);
+              airtonAc.setTemp(temp > getAirtonMaxTemp() ? getAirtonMaxTemp() : temp);
+              setAirtonMaxTemp(30);
               active->setVal(airtonAc.getPower());
               
               if (airtonAc.getPower() != 0) {
@@ -200,4 +202,14 @@ void IRController::clearDecodeResults(decode_results *results) {
   results->overflow = false;
   results->repeat = false;
   memset(results->state, 0, sizeof(results->state));
+}
+
+uint8_t airtonMaxTemp = 25;  // Default to 25°C
+uint8_t getAirtonMaxTemp() {
+    return airtonMaxTemp;
+}
+
+// Setter function to change the max temp
+void setAirtonMaxTemp(uint8_t temp) {
+    airtonMaxTemp = temp;
 }

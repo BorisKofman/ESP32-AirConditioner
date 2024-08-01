@@ -7,9 +7,6 @@
 #define DHT_PIN 16  // DHT11 sensor pin
 #define DHT_TYPE DHT22
 
-#undef kAirtonMaxTemp
-const uint8_t kAirtonMaxTemp = 31;
-
 unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
 const uint16_t sendPin = 4; // Define the GPIO pin for the IR LED
