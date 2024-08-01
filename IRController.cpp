@@ -155,9 +155,9 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
     else if (irType == "AIRTON") {
         irrecv.pause();
         delay(10);  
-        setAirtonMaxTemp(31);
         airtonAc.setPower(power);
         if (power != 0) {
+          setAirtonMaxTemp(31);
           if ( mode == 0) { // Auto
             airtonAc.setMode(kAirtonAuto);
           } else if (mode == 1) { // Heating
@@ -169,7 +169,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 50) ? kAirtonFanMed :
           (fan <= 75) ? kAirtonFanHigh :
                         kAirtonFanAuto);
-          airtonAc.setTemp(temp > getAirtonMaxTemp() ? getAirtonMaxTemp() : temp);
+          airtonAc.setTemp(temp);
           Serial.print(temp);
           airtonAc.setSwingV(swing);  
           airtonAc.setLight("on");
@@ -204,9 +204,6 @@ void IRController::clearDecodeResults(decode_results *results) {
 }
 
 uint8_t airtonMaxTemp = 25;  // Default to 25°C
-uint8_t getAirtonMaxTemp() {
-    return airtonMaxTemp;
-}
 
 // Setter function to change the max temp
 void setAirtonMaxTemp(uint8_t temp) {
