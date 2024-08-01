@@ -86,10 +86,7 @@ void IRController::handleIR() {
           }
           else if (irType == AIRTON && type == AIRTON) {
               airtonAc.setRaw(results.value);
-              airtonAc.setTemp(temp > getAirtonMaxTemp() ? getAirtonMaxTemp() : temp);
-              setAirtonMaxTemp(30);
               active->setVal(airtonAc.getPower());
-              
               if (airtonAc.getPower() != 0) {
                 int mode = airtonAc.getMode();
 
@@ -108,6 +105,7 @@ void IRController::handleIR() {
                       break;
                 }
                 coolingTemp->setVal(airtonAc.getTemp());
+                
               }
           }
           else {
@@ -157,6 +155,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
     else if (irType == "AIRTON") {
         irrecv.pause();
         delay(10);  
+        setAirtonMaxTemp(31);
         airtonAc.setPower(power);
         if (power != 0) {
           if ( mode == 0) { // Auto
@@ -170,7 +169,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 50) ? kAirtonFanMed :
           (fan <= 75) ? kAirtonFanHigh :
                         kAirtonFanAuto);
-          airtonAc.setTemp(temp);
+          airtonAc.setTemp(temp > getAirtonMaxTemp() ? getAirtonMaxTemp() : temp);
           Serial.print(temp);
           airtonAc.setSwingV(swing);  
           airtonAc.setLight("on");
