@@ -7,6 +7,9 @@
 #define DHT_PIN 16  // DHT11 sensor pin
 #define DHT_TYPE DHT22
 
+#undef kAirtonMaxTemp
+const uint8_t kAirtonMaxTemp = 31;
+
 unsigned long lastReadTime = 0; // Variable to store the last read time
 const unsigned long readInterval = 10000; // 10 seconds
 const uint16_t sendPin = 4; // Define the GPIO pin for the IR LED
@@ -14,7 +17,6 @@ const uint16_t recvPin = 15; // Pin where the IR receiver is connected
 const uint32_t kBaudRate = 115200;
 const uint16_t kCaptureBufferSize = 2048;
 const uint8_t kTimeout = 15;
-
 
 DHT dht(DHT_PIN, DHT_TYPE);
 IRController irController(sendPin, recvPin, kCaptureBufferSize, kTimeout, true); 

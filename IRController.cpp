@@ -2,6 +2,7 @@
 
 // Define constants for remote types
 #define GOODWEATHER "GOODWEATHER"
+
 #define AIRTON "AIRTON"
 
 const uint8_t kTolerancePercentage = kTolerance;
@@ -137,14 +138,15 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         } else if (mode == 2) { // Cooling
           goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
         }
-          goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
-          (fan <= 50) ? kGoodweatherFanMed :
-          (fan <= 75) ? kGoodweatherFanHigh :
-                        kGoodweatherFanAuto);
-        }
         goodweatherAc.setTemp(temp);
         Serial.print(temp);
         goodweatherAc.setSwing(swing);
+        goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
+        (fan <= 50) ? kGoodweatherFanMed :
+        (fan <= 75) ? kGoodweatherFanHigh :
+                      kGoodweatherFanAuto);
+
+        }
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         delay(10);  // Short delay to ensure the command is sent
         irrecv.resume();  // Resume IR receiver
@@ -166,11 +168,11 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 50) ? kAirtonFanMed :
           (fan <= 75) ? kAirtonFanHigh :
                         kAirtonFanAuto);
+          airtonAc.setTemp(temp);
+          Serial.print(temp);
+          airtonAc.setSwingV(swing);  
+          airtonAc.setLight("on");
           }
-        airtonAc.setTemp(temp);
-        Serial.print(temp);
-        airtonAc.setSwingV(swing);
-        airtonAc.setLight("on");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
         delay(10);  // Short delay to ensure the command is sent 
         irrecv.resume();
