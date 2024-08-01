@@ -89,18 +89,17 @@ void IRController::handleIR() {
               active->setVal(airtonAc.getPower());
               
               if (airtonAc.getPower() != 0) {
-                  Serial.print();
                 int mode = airtonAc.getMode();
 
                 switch (mode) {
                   case 0: //remote auto homekit auto
                       currentState->setVal(0);
                       break;
+                  case 4; //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
                   case 1; //remote cooling homekit cooling 
                       currentState->setVal(2);
-                      break;
-                  case 5; //remote heating homekit heating 
-                      currentState->setVal(1);
                       break;
                   default:
                       // Handle other cases or do nothing
