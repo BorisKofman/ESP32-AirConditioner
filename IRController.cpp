@@ -2,11 +2,11 @@
 
 // Define constants for remote types
 #define GOODWEATHER "GOODWEATHER"
+
 #define AIRTON "AIRTON"
 
 const uint8_t kTolerancePercentage = kTolerance;
 const uint16_t kMinUnknownSize = 12;
-
 
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
@@ -53,6 +53,7 @@ void IRController::handleIR() {
           preferences.end();  // Close NVS storage
           Serial.print("AC control type is configured: ");
           Serial.println(type);
+          clearDecodeResults(&results);
           irrecv.resume(); 
           return;
         } else {
@@ -63,31 +64,62 @@ void IRController::handleIR() {
             active->setVal(goodweatherAc.getPower());
             
             if (goodweatherAc.getPower() != 0) {
-                currentState->setVal(goodweatherAc.getMode());
+                int mode = goodweatherAc.getMode();
+  
+                switch (mode) {
+                  case 0: //remote auto homekit auto
+                      currentState->setVal(0);
+                      break;
+                  case 4: //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
+                  case 1: //remote cooling homekit cooling 
+                      currentState->setVal(2);
+                      break;
+                  default:
+                      // Handle other cases or do nothing
+                      break;
+                }
                 coolingTemp->setVal(goodweatherAc.getTemp());
             }
           }
           else if (irType == AIRTON && type == AIRTON) {
               airtonAc.setRaw(results.value);
               active->setVal(airtonAc.getPower());
-              
               if (airtonAc.getPower() != 0) {
-                  currentState->setVal(airtonAc.getMode());
-                  coolingTemp->setVal(airtonAc.getTemp());
+                int mode = airtonAc.getMode();
+
+                switch (mode) {
+                  case 0: //remote auto homekit auto
+                      currentState->setVal(0);
+                      break;
+                  case 4: //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
+                  case 1: //remote cooling homekit cooling 
+                      currentState->setVal(2);
+                      break;
+                  default:
+                      // Handle other cases or do nothing
+                      break;
+                }
+                coolingTemp->setVal(airtonAc.getTemp());
+                
               }
           }
           else {
             Serial.print("Skiping");
+            clearDecodeResults(&results);
             irrecv.resume(); 
             return; 
           }
+        clearDecodeResults(&results);
         irrecv.resume(); 
         return; 
         }
       irrecv.resume(); 
       return; 
     }
-    clearDecodeResults(&results);
 }
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
@@ -105,12 +137,13 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         } else if (mode == 2) { // Cooling
           goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
         }
-          goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
-          (fan <= 50) ? kGoodweatherFanMed :
-          (fan <= 75) ? kGoodweatherFanHigh :
-                        kGoodweatherFanAuto);
-          goodweatherAc.setTemp(temp);
-          goodweatherAc.setSwing(swing);
+        goodweatherAc.setTemp(temp);
+        goodweatherAc.setSwing(swing);
+        goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
+        (fan <= 50) ? kGoodweatherFanMed :
+        (fan <= 75) ? kGoodweatherFanHigh :
+                      kGoodweatherFanAuto);
+
         }
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         delay(10);  // Short delay to ensure the command is sent
@@ -134,9 +167,9 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 75) ? kAirtonFanHigh :
                         kAirtonFanAuto);
           airtonAc.setTemp(temp);
-          airtonAc.setSwingV(swing);
+          airtonAc.setSwingV(swing);  
           airtonAc.setLight("on");
-        }
+          }
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
         delay(10);  // Short delay to ensure the command is sent 
         irrecv.resume();
@@ -165,3 +198,4 @@ void IRController::clearDecodeResults(decode_results *results) {
   results->repeat = false;
   memset(results->state, 0, sizeof(results->state));
 }
+

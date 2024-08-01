@@ -15,7 +15,6 @@ const uint32_t kBaudRate = 115200;
 const uint16_t kCaptureBufferSize = 2048;
 const uint8_t kTimeout = 15;
 
-
 DHT dht(DHT_PIN, DHT_TYPE);
 IRController irController(sendPin, recvPin, kCaptureBufferSize, kTimeout, true); 
 
