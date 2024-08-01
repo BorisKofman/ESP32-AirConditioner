@@ -70,13 +70,12 @@ void IRController::handleIR() {
                   case 0: //remote auto homekit auto
                       currentState->setVal(0);
                       break;
-                  case 4; //remote heating homekit heating 
+                  case 4: //remote heating homekit heating 
                       currentState->setVal(1);
                       break;
-                  case 1; //remote cooling homekit cooling 
+                  case 1: //remote cooling homekit cooling 
                       currentState->setVal(2);
                       break;
-
                   default:
                       // Handle other cases or do nothing
                       break;
@@ -95,10 +94,10 @@ void IRController::handleIR() {
                   case 0: //remote auto homekit auto
                       currentState->setVal(0);
                       break;
-                  case 4; //remote heating homekit heating 
+                  case 4: //remote heating homekit heating 
                       currentState->setVal(1);
                       break;
-                  case 1; //remote cooling homekit cooling 
+                  case 1: //remote cooling homekit cooling 
                       currentState->setVal(2);
                       break;
                   default:
@@ -142,9 +141,10 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 50) ? kGoodweatherFanMed :
           (fan <= 75) ? kGoodweatherFanHigh :
                         kGoodweatherFanAuto);
-          goodweatherAc.setTemp(temp);
-          goodweatherAc.setSwing(swing);
         }
+        goodweatherAc.setTemp(temp);
+        Serial.print(temp);
+        goodweatherAc.setSwing(swing);
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         delay(10);  // Short delay to ensure the command is sent
         irrecv.resume();  // Resume IR receiver
@@ -166,10 +166,11 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 50) ? kAirtonFanMed :
           (fan <= 75) ? kAirtonFanHigh :
                         kAirtonFanAuto);
-          airtonAc.setTemp(temp);
-          airtonAc.setSwingV(swing);
-          airtonAc.setLight("on");
-        }
+          }
+        airtonAc.setTemp(temp);
+        Serial.print(temp);
+        airtonAc.setSwingV(swing);
+        airtonAc.setLight("on");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
         delay(10);  // Short delay to ensure the command is sent 
         irrecv.resume();
