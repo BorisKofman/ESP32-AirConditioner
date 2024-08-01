@@ -4,10 +4,11 @@
 #define GOODWEATHER "GOODWEATHER"
 
 #define AIRTON "AIRTON"
+#undef kAirtonMaxTemp
+#define kAirtonMaxTemp 31  
 
 const uint8_t kTolerancePercentage = kTolerance;
 const uint16_t kMinUnknownSize = 12;
-
 
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
@@ -157,7 +158,6 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         delay(10);  
         airtonAc.setPower(power);
         if (power != 0) {
-          setAirtonMaxTemp(31);
           if ( mode == 0) { // Auto
             airtonAc.setMode(kAirtonAuto);
           } else if (mode == 1) { // Heating
@@ -203,9 +203,3 @@ void IRController::clearDecodeResults(decode_results *results) {
   memset(results->state, 0, sizeof(results->state));
 }
 
-uint8_t airtonMaxTemp = 25;  // Default to 25°C
-
-// Setter function to change the max temp
-void setAirtonMaxTemp(uint8_t temp) {
-    airtonMaxTemp = temp;
-}
