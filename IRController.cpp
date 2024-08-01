@@ -4,8 +4,6 @@
 #define GOODWEATHER "GOODWEATHER"
 
 #define AIRTON "AIRTON"
-#undef kAirtonMaxTemp
-#define kAirtonMaxTemp 31  
 
 const uint8_t kTolerancePercentage = kTolerance;
 const uint16_t kMinUnknownSize = 12;
@@ -140,7 +138,6 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
         }
         goodweatherAc.setTemp(temp);
-        Serial.print(temp);
         goodweatherAc.setSwing(swing);
         goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
         (fan <= 50) ? kGoodweatherFanMed :
@@ -170,7 +167,6 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           (fan <= 75) ? kAirtonFanHigh :
                         kAirtonFanAuto);
           airtonAc.setTemp(temp);
-          Serial.print(temp);
           airtonAc.setSwingV(swing);  
           airtonAc.setLight("on");
           }
