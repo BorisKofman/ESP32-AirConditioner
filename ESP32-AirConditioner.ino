@@ -1,6 +1,5 @@
 #include "HomeSpan.h"
 #include <DHT.h>
-#include <BLEDevice.h>
 #include "IRController.h"
 
 #define STATUS_LED_PIN 48  // pin for status LED
@@ -89,9 +88,6 @@ public:
 
 void setup() {
     Serial.begin(kBaudRate);
-
-    // Disable BLE to save power
-    BLEDevice::deinit(true);
 
     irController.beginreceive(); 
     
