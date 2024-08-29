@@ -2,7 +2,6 @@
 #define IR_CONTROLLER_H
 
 #include "HomeSpan.h"
-
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
@@ -10,6 +9,13 @@
 #include <ir_Airton.h>
 #include <Preferences.h>
 
+// Define constants for remote types
+#define GOODWEATHER "GOODWEATHER"
+#define AIRTON "AIRTON"
+
+// Define constants used in the IRController
+const uint8_t kTolerancePercentage = 25;  // Example tolerance percentage value
+const uint16_t kMinUnknownSize = 12;  // Example unknown size threshold
 
 class IRController {
 private:
@@ -20,13 +26,12 @@ private:
     Preferences preferences;
     String irType;
 
-    uint16_t recvPin;  // Add this line
-    uint16_t sendPin; // Define the GPIO pin for the IR LED
+    uint16_t recvPin;
+    uint16_t sendPin;
     uint16_t captureBufferSize;
     uint8_t timeout;
     bool debug;
-    // Other member variables...
-    
+
 public:
     SpanCharacteristic *active;
     SpanCharacteristic *currentState;
