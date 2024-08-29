@@ -1,8 +1,7 @@
 #include "IRController.h"
 
-// Define constants used in the IRController
-const uint8_t kTolerancePercentage = 25;  // Example tolerance percentage value
-const uint16_t kMinUnknownSize = 12;  // Example unknown size threshold
+const uint8_t kTolerancePercentage = 25; 
+const uint16_t kMinUnknownSize = 12; 
 
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
@@ -62,7 +61,6 @@ void IRController::handleIR() {
         irrecv.resume();
         return;
     }
-    // Method to handle received IR signals and process them.
 }
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
@@ -94,14 +92,12 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
     } else {
         Serial.println("AC control type is not configured.");
     }
-    // Method to send IR command based on power, mode, temp, fan, and swing parameters.
 }
 
 void IRController::getIRType() {
     preferences.begin("ac_ctrl", true);
     irType = preferences.getString("irType", "");
     preferences.end();
-    // Method to retrieve the stored IR type from non-volatile storage.
 }
 
 void IRController::clearDecodeResults(decode_results *results) {
@@ -114,5 +110,4 @@ void IRController::clearDecodeResults(decode_results *results) {
     results->overflow = false;
     results->repeat = false;
     memset(results->state, 0, sizeof(results->state));
-    // Method to clear IR decoding results.
 }

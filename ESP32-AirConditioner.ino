@@ -25,18 +25,16 @@ void setup() {
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
 
-    // Bridge accessory information
-    new SpanAccessory();
-    new Service::AccessoryInformation();
-    new Characteristic::Identify();
-    new Characteristic::Name("ESP32 Bridge");
-    new Characteristic::Model("ESP32 AC Model");
-    new Characteristic::FirmwareRevision("1.0.1");
-
     // Add Heater/Cooler accessory
     new SpanAccessory();
-    new HeaterCoolerAccessory(&dht, &irController);
+    new Service::AccessoryInformation();
+      new Characteristic::Identify(); 
+      new Characteristic::Name("Radar Sensor 1");
+      new Characteristic::Model("ESP32 AC Model");
+      new Characteristic::FirmwareRevision("1.0.1");
+      new HeaterCoolerAccessory(&dht, &irController);
 }
+
 
 void loop() {
     homeSpan.poll();

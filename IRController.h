@@ -1,3 +1,5 @@
+// IRController.h
+
 #ifndef IR_CONTROLLER_H
 #define IR_CONTROLLER_H
 
@@ -13,9 +15,9 @@
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
 
-// Define constants used in the IRController
-const uint8_t kTolerancePercentage = 25;  // Example tolerance percentage value
-const uint16_t kMinUnknownSize = 12;  // Example unknown size threshold
+// Remove these lines:
+// const uint8_t kTolerancePercentage = 25;  // Example tolerance percentage value
+// const uint16_t kMinUnknownSize = 12;  // Example unknown size threshold
 
 class IRController {
 private:
