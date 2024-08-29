@@ -19,7 +19,6 @@ void IRController::beginreceive() {
     irrecv.setTolerance(kTolerancePercentage);
     irrecv.setUnknownThreshold(kMinUnknownSize);
     irrecv.enableIRIn();
-    Serial.println("IR Receiver initialized."); // Debug print
 }
 
 void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed) {

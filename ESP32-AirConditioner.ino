@@ -11,7 +11,6 @@
 #define CAPTURE_BUFFER_SIZE 2048
 #define TIMEOUT 15
 
-// Instantiate objects
 DHT dht(DHT_PIN, DHT_TYPE);
 IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true);
 
@@ -19,7 +18,7 @@ void setup() {
     Serial.begin(BAUD_RATE);
 
     irController.beginreceive(); 
-    
+
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.begin(Category::Bridges, "ESP32 HomeSpan Bridge");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");

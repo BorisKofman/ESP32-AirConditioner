@@ -31,4 +31,4 @@ public:
     boolean update() override;
 };
 
-#endif // HEATERCOOLER_ACCESSORY_H
+#endif

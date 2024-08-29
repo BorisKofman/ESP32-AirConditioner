@@ -1,5 +1,3 @@
-// IRController.h
-
 #ifndef IR_CONTROLLER_H
 #define IR_CONTROLLER_H
 
@@ -14,10 +12,6 @@
 // Define constants for remote types
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
-
-// Remove these lines:
-// const uint8_t kTolerancePercentage = 25;  // Example tolerance percentage value
-// const uint16_t kMinUnknownSize = 12;  // Example unknown size threshold
 
 class IRController {
 private:
@@ -51,4 +45,4 @@ public:
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
 };
 
-#endif // IR_CONTROLLER_H
+#endif
