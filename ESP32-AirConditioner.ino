@@ -18,14 +18,16 @@ IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true
 void setup() {
     Serial.begin(BAUD_RATE);
 
-    // Set up HomeSpan bridge
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.begin(Category::Bridges, "ESP32 HomeSpan Bridge");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
 
-    // Add Heater/Cooler accessory
+  new SpanAccessory();
+    new Service::AccessoryInformation();
+      new Characteristic::Identify();            
+ 
     new SpanAccessory();
     new Service::AccessoryInformation();
       new Characteristic::Identify(); 
