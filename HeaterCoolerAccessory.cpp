@@ -17,8 +17,8 @@ HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtr
     currentHumidity = new Characteristic::CurrentRelativeHumidity(0);
     swingMode = new Characteristic::SwingMode(0, true);
 
-    coolingTemp->setRange(16, 31, 1);
-    heatingTemp->setRange(16, 31, 1);
+    coolingTemp->setRange(16, 31, 0.5);
+    heatingTemp->setRange(16, 31, 0.5);
     rotationSpeed->setRange(0, 100, 25);
 
     irController->setCharacteristics(active, currentState, coolingTemp, rotationSpeed);
@@ -38,9 +38,10 @@ void HeaterCoolerAccessory::readTemperatureAndHumidity() {
     int humidity = dht->readHumidity();
 
     if (!isnan(temperature) && !isnan(humidity)) {
-        int roundedTemp = round(temperature);
-        currentTemp->setVal(roundedTemp);
+        currentTemp->setVal(temperature);
         currentHumidity->setVal(humidity);
+        Serial.print("temperature: ");
+        Serial.println(temperature);
     } else {
         Serial.println("Failed to read from DHT sensor!");
     }
