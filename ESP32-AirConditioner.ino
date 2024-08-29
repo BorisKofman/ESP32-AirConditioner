@@ -29,12 +29,11 @@ void setup() {
     new SpanAccessory();
     new Service::AccessoryInformation();
       new Characteristic::Identify(); 
-      new Characteristic::Name("Radar Sensor 1");
+      new Characteristic::Name("ESP32 Air Conditioner");
       new Characteristic::Model("ESP32 AC Model");
       new Characteristic::FirmwareRevision("1.0.1");
       new HeaterCoolerAccessory(&dht, &irController);
 }
-
 
 void loop() {
     homeSpan.poll();

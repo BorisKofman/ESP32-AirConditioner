@@ -19,6 +19,7 @@ void IRController::beginreceive() {
     irrecv.setTolerance(kTolerancePercentage);
     irrecv.setUnknownThreshold(kMinUnknownSize);
     irrecv.enableIRIn();
+    Serial.println("IR Receiver initialized."); // Debug print
 }
 
 void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed) {
@@ -31,6 +32,8 @@ void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteri
 void IRController::handleIR() {
     decode_results results;
     if (irrecv.decode(&results)) {
+        Serial.println("IR signal detected."); // Debug print
+
         String type = typeToString(results.decode_type);
         if (type == "UNKNOWN") {
             Serial.println("Dropping UNKNOWN");
@@ -55,7 +58,6 @@ void IRController::handleIR() {
             Serial.print("AC control already configured protocol: ");
             Serial.println(irType);
             // Handle specific IR types like GOODWEATHER and AIRTON
-            // Based on irType and results decode data
         }
         clearDecodeResults(&results);
         irrecv.resume();
