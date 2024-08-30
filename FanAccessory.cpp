@@ -44,3 +44,7 @@ void FanAccessory::deactivateFan() {
     currentFanState->setVal(0);
     Serial.println("Fan deactivated because HeaterCooler is enabled.");
 }
+
+void HeaterCoolerAccessory::updateFanSpeed(float speed) {
+    rotationSpeed->setVal(speed);
+}
