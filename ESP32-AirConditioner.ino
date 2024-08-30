@@ -16,6 +16,8 @@
 DHT dht(DHT_PIN, DHT_TYPE);
 IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true);
 
+HeaterCoolerAccessory* heaterCooler;  
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
@@ -37,7 +39,7 @@ void setup() {
       new Characteristic::Name("ESP32 Air Conditioner");
       new Characteristic::Model("ESP32 AC Model");
       new Characteristic::FirmwareRevision("1.0.1");
-      new HeaterCoolerAccessory(&dht, &irController);
+      heaterCooler = new HeaterCoolerAccessory(&dht, &irController); 
 
     new SpanAccessory();
     new Service::AccessoryInformation();
