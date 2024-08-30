@@ -30,6 +30,7 @@ public:
     void readTemperatureAndHumidity();
     boolean update() override;
     void disable();
+    void updateFanSpeed(float speed);
 };
 
 #endif

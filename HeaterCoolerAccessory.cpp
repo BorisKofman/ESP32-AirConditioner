@@ -38,10 +38,14 @@ void HeaterCoolerAccessory::readTemperatureAndHumidity() {
     int humidity = dht->readHumidity();
 
     if (!isnan(temperature) && !isnan(humidity)) {
+        float hic = dht->computeHeatIndex(temperature, humidity, false);
         currentTemp->setVal(temperature);
         currentHumidity->setVal(humidity);
+
         Serial.print("temperature: ");
-        Serial.println(temperature);
+        Serial.print(temperature);
+        Serial.print(F(" Heat index: "));
+        Serial.println(hic);
     } else {
         Serial.println("Failed to read from DHT sensor!");
     }
@@ -53,6 +57,7 @@ boolean HeaterCoolerAccessory::update() {
     if (power) {
         fanAccessory->disable();
     }
+}
 
     int mode = targetState->getNewVal();
     int temp = (mode == 1) ? heatingTemp->getNewVal() : coolingTemp->getNewVal();
