@@ -20,7 +20,7 @@ void setup() {
     irController.beginreceive(); 
 
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
-    homeSpan.begin(Category::Bridges, "ESP32 HomeSpan Bridge");
+    homeSpan.begin(Category::Bridges, "ESP32 Air Conditioner Bridge");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
