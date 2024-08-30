@@ -24,7 +24,6 @@ boolean FanAccessory::update() {
     if (fanActive) {
         Serial.println("Fan is turned ON. Disabling HeaterCooler.");
         heaterCooler->disable(); 
-        heaterCooler->updateFanSpeed(speed);
         irController->setFanMode();
 
         currentFanState->setVal((targetState == 1) ? 2 : 1);

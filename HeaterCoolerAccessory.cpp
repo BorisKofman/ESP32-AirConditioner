@@ -53,12 +53,6 @@ void HeaterCoolerAccessory::readTemperatureAndHumidity() {
 
 boolean HeaterCoolerAccessory::update() {
     bool power = active->getNewVal() == 1;
-
-    if (power) {
-        fanAccessory->disable();
-    }
-}
-
     int mode = targetState->getNewVal();
     int temp = (mode == 1) ? heatingTemp->getNewVal() : coolingTemp->getNewVal();
     int fan = rotationSpeed->getNewVal();
@@ -71,8 +65,4 @@ boolean HeaterCoolerAccessory::update() {
 void HeaterCoolerAccessory::disable() {
     active->setVal(0);
     Serial.println("HeaterCoolerAccessory disabled.");
-}
-
-void HeaterCoolerAccessory::updateFanSpeed(float speed) {
-    rotationSpeed->setVal(speed);
 }
