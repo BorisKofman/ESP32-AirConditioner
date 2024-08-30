@@ -63,8 +63,11 @@ boolean HeaterCoolerAccessory::update() {
     return true;
 }
 
-
 void HeaterCoolerAccessory::disable() {
-    active->setVal(0);  // Disable the HeaterCooler accessory
+    active->setVal(0);
     Serial.println("HeaterCoolerAccessory disabled.");
+}
+
+void HeaterCoolerAccessory::updateFanSpeed(float speed) {
+    rotationSpeed->setVal(speed);
 }

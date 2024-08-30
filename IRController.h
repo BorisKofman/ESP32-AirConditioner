@@ -9,7 +9,6 @@
 #include <ir_Airton.h>
 #include <Preferences.h>
 
-// Define constants for remote types
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
 
@@ -45,7 +44,7 @@ public:
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
     void setLight(bool state);
     void setFanMode();
-    void turnOffAC();  // New method to turn off the AC
+    void turnOffAC();
 };
 
-#endif // IR_CONTROLLER_H
+#endif

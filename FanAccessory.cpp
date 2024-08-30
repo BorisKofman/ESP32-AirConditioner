@@ -1,20 +1,18 @@
 #include "FanAccessory.h"
 
-// Constructor implementation
 FanAccessory::FanAccessory(IRController *irCtrl, HeaterCoolerAccessory *heaterCooler)
     : irController(irCtrl), heaterCooler(heaterCooler) {
 
-    active = new Characteristic::Active(0, true);  // Default to INACTIVE
-    currentFanState = new Characteristic::CurrentFanState(1);  // Default to IDLE
-    targetFanState = new Characteristic::TargetFanState(1, true);  // Default to AUTO
-    rotationDirection = new Characteristic::RotationDirection(0, true);  // Default to CLOCKWISE
-    rotationSpeed = new Characteristic::RotationSpeed(0, true);  // Default to 0%
-    swingMode = new Characteristic::SwingMode(0, true);  // Default to SWING_DISABLED
-    lockPhysicalControls = new Characteristic::LockPhysicalControls(0, true);  // Default to CONTROL_LOCK_DISABLED
-    configuredName = new Characteristic::ConfiguredName("Fan", true);  // Default name "Fan"
+    active = new Characteristic::Active(0, true);  
+    currentFanState = new Characteristic::CurrentFanState(1);
+    targetFanState = new Characteristic::TargetFanState(1, true); 
+    rotationDirection = new Characteristic::RotationDirection(0, true); 
+    rotationSpeed = new Characteristic::RotationSpeed(0, true);  
+    swingMode = new Characteristic::SwingMode(0, true);  
+    lockPhysicalControls = new Characteristic::LockPhysicalControls(0, true);
+    configuredName = new Characteristic::ConfiguredName("Fan", true);
 }
 
-// Update method implementation
 boolean FanAccessory::update() {
     bool fanActive = active->getNewVal() == 1;
     int targetState = targetFanState->getNewVal();
@@ -25,26 +23,24 @@ boolean FanAccessory::update() {
 
     if (fanActive) {
         Serial.println("Fan is turned ON. Disabling HeaterCooler.");
-        heaterCooler->disable();  // Disable HeaterCooler when fan is on
-
-        // Send command to set fan mode using IR
+        heaterCooler->disable(); 
+        heaterCooler->updateFanSpeed(speed);
         irController->setFanMode();
 
-        currentFanState->setVal((targetState == 1) ? 2 : 1);  // AUTO => BLOWING, MANUAL => IDLE
+        currentFanState->setVal((targetState == 1) ? 2 : 1);
+        
+
     } else {
         Serial.println("Fan is turned OFF. HeaterCooler can be re-enabled.");
-
-        irController->turnOffAC();  // Turn off the fan (AC)
-        
-        currentFanState->setVal(0);  // Set to INACTIVE
+        irController->turnOffAC();
+        currentFanState->setVal(0); 
     }
 
-    return true;  // Return true to indicate the update was successful
+    return true;
 }
 
-// Add a method to deactivate the fan when HeaterCooler is active
 void FanAccessory::deactivateFan() {
-    active->setVal(0);  // Set the fan to INACTIVE
-    currentFanState->setVal(0);  // Set current fan state to INACTIVE
+    active->setVal(0);
+    currentFanState->setVal(0);
     Serial.println("Fan deactivated because HeaterCooler is enabled.");
 }

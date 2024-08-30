@@ -11,7 +11,6 @@ private:
 
 public:
     VirtualSwitchAccessory(IRController *irCtrl);
-
     boolean update() override;
 };
 

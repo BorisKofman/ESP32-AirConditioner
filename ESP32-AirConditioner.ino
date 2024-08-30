@@ -2,7 +2,7 @@
 #include "IRController.h"
 #include "HeaterCoolerAccessory.h"
 #include "VirtualSwitchAccessory.h"
-#include "FanAccessory.h"  // Ensure this header is included
+#include "FanAccessory.h"
 
 #define STATUS_LED_PIN 48
 #define DHT_PIN 16

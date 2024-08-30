@@ -24,4 +24,4 @@ public:
     boolean update() override;
 };
 
-#endif // FAN_ACCESSORY_H
+#endif
