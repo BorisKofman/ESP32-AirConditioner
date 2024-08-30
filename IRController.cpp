@@ -31,36 +31,87 @@ void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteri
 void IRController::handleIR() {
     decode_results results;
     if (irrecv.decode(&results)) {
-        Serial.println("IR signal detected."); // Debug print
-
         String type = typeToString(results.decode_type);
         if (type == "UNKNOWN") {
-            Serial.println("Dropping UNKNOWN");
-            irrecv.resume();
-            return;
-        }
-
+          Serial.println("Dropping UNKNOWN"); //noise 
+          irrecv.resume(); 
+          return;
+        } 
         Serial.print("Received signal from: ");
         Serial.println(type);
-        getIRType();  // Ensure irType is retrieved before proceeding
-
+        getIRType();  
         if (irType == "UNKNOWN" || irType == "") {
-            preferences.begin("ac_ctrl", false);  // Re-open
-            preferences.putString("irType", type);
-            preferences.end();  // Close NVS storage
-            Serial.print("AC control type is configured: ");
-            Serial.println(type);
-            clearDecodeResults(&results);
-            irrecv.resume();
-            return;
+          preferences.begin("ac_ctrl", false);  // Re-open
+          preferences.putString("irType", type);
+          preferences.end();  // Close NVS storage
+          Serial.print("AC control type is configured: ");
+          Serial.println(type);
+          clearDecodeResults(&results);
+          irrecv.resume(); 
+          return;
         } else {
-            Serial.print("AC control already configured protocol: ");
-            Serial.println(irType);
-            // Handle specific IR types like GOODWEATHER and AIRTON
-        }
+          Serial.print("AC control Alrady configured protocol: ");
+          Serial.println(irType);
+          if (irType == GOODWEATHER && type == GOODWEATHER) {
+            goodweatherAc.setRaw(results.value);
+            active->setVal(goodweatherAc.getPower());
+            
+            if (goodweatherAc.getPower() != 0) {
+                int mode = goodweatherAc.getMode();
+  
+                switch (mode) {
+                  case 0: //remote auto homekit auto
+                      currentState->setVal(0);
+                      break;
+                  case 4: //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
+                  case 1: //remote cooling homekit cooling 
+                      currentState->setVal(2);
+                      break;
+                  default:
+                      // Handle other cases or do nothing
+                      break;
+                }
+                coolingTemp->setVal(goodweatherAc.getTemp());
+            }
+          }
+          else if (irType == AIRTON && type == AIRTON) {
+              airtonAc.setRaw(results.value);
+              active->setVal(airtonAc.getPower());
+              if (airtonAc.getPower() != 0) {
+                int mode = airtonAc.getMode();
+
+                switch (mode) {
+                  case 0: //remote auto homekit auto
+                      currentState->setVal(0);
+                      break;
+                  case 4: //remote heating homekit heating 
+                      currentState->setVal(1);
+                      break;
+                  case 1: //remote cooling homekit cooling 
+                      currentState->setVal(2);
+                      break;
+                  default:
+                      // Handle other cases or do nothing
+                      break;
+                }
+                coolingTemp->setVal(airtonAc.getTemp());
+                
+              }
+          }
+          else {
+            Serial.print("Skiping");
+            clearDecodeResults(&results);
+            irrecv.resume(); 
+            return; 
+          }
         clearDecodeResults(&results);
-        irrecv.resume();
-        return;
+        irrecv.resume(); 
+        return; 
+        }
+      irrecv.resume(); 
+      return; 
     }
 }
 
