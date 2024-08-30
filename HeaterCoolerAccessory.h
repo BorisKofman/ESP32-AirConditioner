@@ -3,12 +3,16 @@
 
 #include "HomeSpan.h"
 #include "IRController.h"
+#include "FanAccessory.h"
 #include <DHT.h>
 
 class HeaterCoolerAccessory : public Service::HeaterCooler {
 private:
     DHT *dht;
     IRController *irController;
+
+    // Add FanAccessory pointer to control fan
+    FanAccessory *fanAccessory;
 
     SpanCharacteristic *active;
     SpanCharacteristic *currentState;
@@ -25,7 +29,7 @@ private:
     const unsigned long readInterval = 10000;
 
 public:
-    HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtrl);
+    HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtrl, FanAccessory *fanAcc);
     void loop();
     void readTemperatureAndHumidity();
     boolean update() override;
