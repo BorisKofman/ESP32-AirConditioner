@@ -191,3 +191,26 @@ void IRController::clearDecodeResults(decode_results *results) {
     results->repeat = false;
     memset(results->state, 0, sizeof(results->state));
 }
+
+void IRController::setLight(bool state) {
+    getIRType();  // Ensure the IR type is retrieved before using it
+
+    if (irType == "GOODWEATHER") {
+        irrecv.pause();
+        delay(10);  // Short delay to ensure the receiver is paused
+
+        if (state) {
+            goodweatherAc.setLight("on");
+            Serial.println("Sending IR command to turn light ON.");
+        } else {
+            goodweatherAc.setLight("off");
+            Serial.println("Sending IR command to turn light OFF.");
+        }
+
+        irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
+        delay(10);  // Short delay to ensure the command is sent
+        irrecv.resume();  // Resume IR receiver
+    } else {
+        Serial.println("Unsupported AC protocol for light control.");
+    }
+}

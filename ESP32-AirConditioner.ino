@@ -1,6 +1,7 @@
 #include "HomeSpan.h"
 #include "IRController.h"
 #include "HeaterCoolerAccessory.h"
+#include "VirtualSwitchAccessory.h"
 
 #define STATUS_LED_PIN 48
 #define DHT_PIN 16
@@ -36,6 +37,12 @@ void setup() {
       new Characteristic::Model("ESP32 AC Model");
       new Characteristic::FirmwareRevision("1.0.1");
       new HeaterCoolerAccessory(&dht, &irController);
+
+    new SpanAccessory();
+    new Service::AccessoryInformation();
+    new Characteristic::Identify();
+    new Characteristic::Name("Air Conditioner Light");
+    new VirtualSwitchAccessory(&irController);  
 }
 
 void loop() {
