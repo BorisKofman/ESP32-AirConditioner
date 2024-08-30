@@ -43,9 +43,9 @@ public:
     void clearDecodeResults(decode_results *results);
     void sendCommand(bool power, int mode, int temp, int fan, bool swing);
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
-
-    // New method to control the light
     void setLight(bool state);
+    void setFanMode();
+    void turnOffAC();  // New method to turn off the AC
 };
 
 #endif // IR_CONTROLLER_H

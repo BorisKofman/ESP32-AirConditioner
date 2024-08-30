@@ -214,3 +214,40 @@ void IRController::setLight(bool state) {
         Serial.println("Unsupported AC protocol for light control.");
     }
 }
+
+void IRController::setFanMode() {
+    getIRType();  // Ensure the IR type is retrieved before using it
+
+    if (irType == "GOODWEATHER") {
+        irrecv.pause();
+        delay(10);  // Short delay to ensure the receiver is paused
+        
+        goodweatherAc.setMode(kGoodweatherFan);  // Set mode to fan
+        Serial.println("Sending IR command to set mode to FAN.");
+        
+        irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
+        delay(10);  // Short delay to ensure the command is sent
+        irrecv.resume();  // Resume IR receiver
+    } else {
+        Serial.println("Unsupported AC protocol for fan mode.");
+    }
+}
+
+// New method to turn off the AC
+void IRController::turnOffAC() {
+    getIRType();  // Ensure the IR type is retrieved before using it
+
+    if (irType == "GOODWEATHER") {
+        irrecv.pause();
+        delay(10);  // Short delay to ensure the receiver is paused
+
+        goodweatherAc.setPower(false);  // Set power to off
+        Serial.println("Sending IR command to turn off AC.");
+
+        irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
+        delay(10);  // Short delay to ensure the command is sent
+        irrecv.resume();  // Resume IR receiver
+    } else {
+        Serial.println("Unsupported AC protocol for turning off.");
+    }
+}

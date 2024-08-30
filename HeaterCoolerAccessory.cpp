@@ -57,3 +57,13 @@ boolean HeaterCoolerAccessory::update() {
     irController->sendCommand(power, mode, temp, fan, swing);
     return true;
 }
+
+void HeaterCoolerAccessory::enable() {
+    active->setVal(1);  // Enable the HeaterCooler accessory
+    Serial.println("HeaterCoolerAccessory enabled.");
+}
+
+void HeaterCoolerAccessory::disable() {
+    active->setVal(0);  // Disable the HeaterCooler accessory
+    Serial.println("HeaterCoolerAccessory disabled.");
+}
