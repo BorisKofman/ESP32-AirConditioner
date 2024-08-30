@@ -65,33 +65,61 @@ void IRController::handleIR() {
 }
 
 void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
-    getIRType();  // Ensure irType is retrieved before using it
+
+    getIRType();
     if (irType == "GOODWEATHER") {
-        irrecv.pause();
-        delay(10);
-        goodweatherAc.setPower(power);
-        if (power != 0) {
-            if (mode == 0) {
-                goodweatherAc.setMode(kGoodweatherAuto);
-            } else if (mode == 1) {
-                goodweatherAc.setMode(kGoodweatherHeat);
-            } else if (mode == 2) {
-                goodweatherAc.setMode(kGoodweatherCool);
-            }
-            goodweatherAc.setTemp(temp);
-            goodweatherAc.setSwing(swing);
-            goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
-                                 (fan <= 50) ? kGoodweatherFanMed :
-                                 (fan <= 75) ? kGoodweatherFanHigh :
-                                               kGoodweatherFanAuto);
+      irrecv.pause();
+      delay(10);  
+      goodweatherAc.setPower(power);
+      if ( power != 0) {
+        if ( mode == 0) { // Auto
+          goodweatherAc.setMode(kGoodweatherAuto);
+        } else if (mode == 1) { // Heating
+          goodweatherAc.setMode(kGoodweatherHeat);  //
+        } else if (mode == 2) { // Cooling
+          goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
+        }
+        goodweatherAc.setTemp(temp);
+        goodweatherAc.setSwing(swing);
+        goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
+        (fan <= 50) ? kGoodweatherFanMed :
+        (fan <= 75) ? kGoodweatherFanHigh :
+                      kGoodweatherFanAuto);
+
         }
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-        delay(10);
+        delay(10);  // Short delay to ensure the command is sent
+        irrecv.resume();  // Resume IR receiver
+        return;
+        }   
+    else if (irType == "AIRTON") {
+        irrecv.pause();
+        delay(10);  
+        airtonAc.setPower(power);
+        if (power != 0) {
+          if ( mode == 0) { // Auto
+            airtonAc.setMode(kAirtonAuto);
+          } else if (mode == 1) { // Heating
+            airtonAc.setMode(kAirtonHeat);  //
+          } else if (mode == 2) { // Cooling
+            airtonAc.setMode(kAirtonCool);  // Set mode to cooling
+          }
+          airtonAc.setFan((fan <= 25) ? kAirtonFanLow :
+          (fan <= 50) ? kAirtonFanMed :
+          (fan <= 75) ? kAirtonFanHigh :
+                        kAirtonFanAuto);
+          airtonAc.setTemp(temp);
+          airtonAc.setSwingV(swing);  
+          airtonAc.setLight("on");
+          }
+        irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
+        delay(10);  // Short delay to ensure the command is sent 
         irrecv.resume();
-    } else if (irType == "AIRTON") {
-        // Similar handling for AIRTON protocol
-    } else {
+        return;
+        } 
+    else {
         Serial.println("AC control type is not configured.");
+        return;
     }
 }
 
