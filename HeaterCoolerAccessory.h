@@ -29,8 +29,6 @@ public:
     void loop();
     void readTemperatureAndHumidity();
     boolean update() override;
-    // Methods to enable/disable the accessory
-    void enable();
     void disable();
 };
 

@@ -7,13 +7,20 @@
 
 class FanAccessory : public Service::Fan {
 private:
-    SpanCharacteristic *on;          // Characteristic to represent the fan state
-    IRController *irController;      // Pointer to the IRController instance
-    HeaterCoolerAccessory *heaterCooler;  // Pointer to the HeaterCoolerAccessory to disable
+    SpanCharacteristic *active;
+    SpanCharacteristic *currentFanState;
+    SpanCharacteristic *targetFanState;
+    SpanCharacteristic *rotationDirection;
+    SpanCharacteristic *rotationSpeed;
+    SpanCharacteristic *swingMode;
+    SpanCharacteristic *lockPhysicalControls;
+    SpanCharacteristic *configuredName;
+    
+    IRController *irController;
+    HeaterCoolerAccessory *heaterCooler;
 
 public:
     FanAccessory(IRController *irCtrl, HeaterCoolerAccessory *heaterCooler);
-
     boolean update() override;
 };
 

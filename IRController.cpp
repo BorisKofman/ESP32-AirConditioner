@@ -200,10 +200,10 @@ void IRController::setLight(bool state) {
         delay(10);  // Short delay to ensure the receiver is paused
 
         if (state) {
-            goodweatherAc.setLight("on");
+            goodweatherAc.setLight(1);  // Use 1 for "on"
             Serial.println("Sending IR command to turn light ON.");
         } else {
-            goodweatherAc.setLight("off");
+            goodweatherAc.setLight(0);  // Use 0 for "off"
             Serial.println("Sending IR command to turn light OFF.");
         }
 
@@ -222,6 +222,7 @@ void IRController::setFanMode() {
         irrecv.pause();
         delay(10);  // Short delay to ensure the receiver is paused
         
+        goodweatherAc.setPower(1);
         goodweatherAc.setMode(kGoodweatherFan);  // Set mode to fan
         Serial.println("Sending IR command to set mode to FAN.");
         
@@ -241,7 +242,7 @@ void IRController::turnOffAC() {
         irrecv.pause();
         delay(10);  // Short delay to ensure the receiver is paused
 
-        goodweatherAc.setPower(false);  // Set power to off
+        goodweatherAc.setPower(0);  // Set power to off
         Serial.println("Sending IR command to turn off AC.");
 
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
