@@ -58,7 +58,7 @@ void IRController::handleIR() {
             
             if (goodweatherAc.getPower() != 0) {
                 int mode = goodweatherAc.getMode();
-                serial.println(mode);
+                Serial.println(mode);
                 switch (mode) {
                   case 0: //remote auto homekit auto
                       currentState->setVal(0);
