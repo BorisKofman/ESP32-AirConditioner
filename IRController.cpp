@@ -253,7 +253,7 @@ void IRController::turnOffAC() {
 }
 
 int IRController::getFanSetting(int fan) {
-    if (fan <= 25 {
+    if (fan <= 25) { 
         return kGoodweatherFanLow;
     } else if (fan <= 50) {
         return kGoodweatherFanMed;
