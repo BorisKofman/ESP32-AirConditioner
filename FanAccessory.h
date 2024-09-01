@@ -6,11 +6,12 @@
 
 class FanAccessory : public Service::Fan {
 private:
+
     SpanCharacteristic *active;
     SpanCharacteristic *currentFanState;
     SpanCharacteristic *targetFanState;
     SpanCharacteristic *rotationDirection;
-    SpanCharacteristic *rotationSpeed;
+    SpanCharacteristic *fanRotationSpeed;
     SpanCharacteristic *swingMode;
     SpanCharacteristic *lockPhysicalControls;
     SpanCharacteristic *configuredName;

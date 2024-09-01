@@ -10,18 +10,18 @@ FanAccessory::FanAccessory(IRController *irCtrl)
     currentFanState = new Characteristic::CurrentFanState(1);
     targetFanState = new Characteristic::TargetFanState(1, true); 
     rotationDirection = new Characteristic::RotationDirection(0, true); 
-    rotationSpeed = new Characteristic::RotationSpeed(0, true);  
+    fanRotationSpeed = new Characteristic::RotationSpeed(0, true);
     swingMode = new Characteristic::SwingMode(0, true);  
     lockPhysicalControls = new Characteristic::LockPhysicalControls(0, true);
     configuredName = new Characteristic::ConfiguredName("Fan", true);
 
-    rotationSpeed->setRange(0, 100, 20);
+    fanRotationSpeed->setRange(0, 100, 20);
 }
 
 boolean FanAccessory::update() {
     bool fanActive = active->getNewVal() == 1;
 
-    int fanSpeed = rotationSpeed->getNewVal();
+    int fanSpeed = fanRotationSpeed->getNewVal();
 
     if (fanActive) {
         Serial.println("Fan is turned ON.");
