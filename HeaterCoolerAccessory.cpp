@@ -22,7 +22,7 @@ HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtr
 
     coolingTemp->setRange(16, 31, 1);
     heatingTemp->setRange(16, 31, 1);
-    rotationSpeed->setRange(0, 100, 20);
+    rotationSpeed->setRange(0, 100, 25);
 
     irController->setCharacteristics(active, currentState, coolingTemp, rotationSpeed);
 }

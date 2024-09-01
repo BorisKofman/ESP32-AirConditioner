@@ -15,7 +15,7 @@ FanAccessory::FanAccessory(IRController *irCtrl)
     lockPhysicalControls = new Characteristic::LockPhysicalControls(0, true);
     configuredName = new Characteristic::ConfiguredName("Fan", true);
 
-    fanRotationSpeed->setRange(0, 100, 20);
+    fanRotationSpeed->setRange(0, 100, 25);
 }
 
 boolean FanAccessory::update() {
