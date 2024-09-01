@@ -9,6 +9,8 @@ class HeaterCoolerAccessory : public Service::HeaterCooler {
 private:
     DHT *dht;
     IRController *irController;
+    unsigned long lastReadTime = 0;  // Variable to track the last read time
+    const unsigned long readInterval = 2000;  // Example interval of 2 seconds
 
     SpanCharacteristic *active;
     SpanCharacteristic *currentState;
@@ -21,17 +23,15 @@ private:
     SpanCharacteristic *currentHumidity;
     SpanCharacteristic *swingMode;
 
-    unsigned long lastReadTime = 0;
-    const unsigned long readInterval = 10000;
-
 public:
     HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtrl);
-    void loop();
-    void readTemperatureAndHumidity();
     boolean update() override;
-    // Methods to enable/disable the accessory
-    void enable();
     void disable();
+    void enable();
+    int getActiveState();  
+    
+    void loop(); 
+    void readTemperatureAndHumidity();
 };
 
 #endif

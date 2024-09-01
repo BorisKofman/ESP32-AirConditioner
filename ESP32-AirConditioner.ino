@@ -16,12 +16,12 @@
 DHT dht(DHT_PIN, DHT_TYPE);
 IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true);
 
-HeaterCoolerAccessory* heaterCooler;  
+FanAccessory* fanAccessory = nullptr;
+HeaterCoolerAccessory* heaterCoolerAccessory = nullptr; 
 
 void setup() {
     Serial.begin(BAUD_RATE);
-
-    irController.beginreceive(); 
+    irController.beginreceive();
 
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.begin(Category::Bridges, "ESP32 Air Conditioner Bridge");
@@ -29,23 +29,24 @@ void setup() {
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
 
-  new SpanAccessory();
-    new Service::AccessoryInformation();
-      new Characteristic::Identify();            
- 
     new SpanAccessory();
     new Service::AccessoryInformation();
-      new Characteristic::Identify(); 
-      new Characteristic::Name("ESP32 Air Conditioner");
-      new Characteristic::Model("ESP32 AC Model");
-      new Characteristic::FirmwareRevision("1.0.1");
-      heaterCooler = new HeaterCoolerAccessory(&dht, &irController); 
+    new Characteristic::Identify();            
+
+    new SpanAccessory();
+    new Service::AccessoryInformation();
+    new Characteristic::Identify(); 
+    new Characteristic::Name("ESP32 Air Conditioner");
+    new Characteristic::Model("ESP32 AC Model");
+    new Characteristic::FirmwareRevision("1.0.1");
+    heaterCoolerAccessory = new HeaterCoolerAccessory(&dht, &irController);
+
 
     new SpanAccessory();
     new Service::AccessoryInformation();
     new Characteristic::Identify();
     new Characteristic::Name("ESP32 Air Conditioner Fan");
-    new FanAccessory(&irController, heaterCooler);
+    fanAccessory = new FanAccessory(&irController);
 
     new SpanAccessory();
     new Service::AccessoryInformation();

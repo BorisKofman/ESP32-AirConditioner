@@ -3,7 +3,6 @@
 
 #include "HomeSpan.h"
 #include "IRController.h"
-#include "HeaterCoolerAccessory.h"
 
 class FanAccessory : public Service::Fan {
 private:
@@ -17,11 +16,11 @@ private:
     SpanCharacteristic *configuredName;
     
     IRController *irController;
-    HeaterCoolerAccessory *heaterCooler;
 
 public:
-    FanAccessory(IRController *irCtrl, HeaterCoolerAccessory *heaterCooler);
+    FanAccessory(IRController *irCtrl);
     boolean update() override;
+    void disable();
 };
 
 #endif

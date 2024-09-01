@@ -1,4 +1,7 @@
 #include "HeaterCoolerAccessory.h"
+#include "FanAccessory.h"
+
+extern FanAccessory* fanAccessory;
 
 HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtrl) 
     : dht(dhtSensor), irController(irCtrl) {
@@ -42,7 +45,7 @@ void HeaterCoolerAccessory::readTemperatureAndHumidity() {
         currentTemp->setVal(temperature);
         currentHumidity->setVal(humidity);
 
-        Serial.print("temperature: ");
+        Serial.print("Temperature: ");
         Serial.print(temperature);
         Serial.print(F(" Heat index: "));
         Serial.println(hic);
@@ -59,10 +62,25 @@ boolean HeaterCoolerAccessory::update() {
     bool swing = swingMode->getNewVal();
 
     irController->sendCommand(power, mode, temp, fan, swing);
+
+    if (power && fanAccessory != nullptr) {
+        Serial.println("HeaterCooler is enabled, disabling Fan.");
+        fanAccessory->disable();
+    }
+
     return true;
 }
 
 void HeaterCoolerAccessory::disable() {
     active->setVal(0);
     Serial.println("HeaterCoolerAccessory disabled.");
+}
+
+void HeaterCoolerAccessory::enable() {
+    active->setVal(1);
+    Serial.println("HeaterCoolerAccessory enabled.");
+}
+
+int HeaterCoolerAccessory::getActiveState() {
+    return active->getVal();
 }
