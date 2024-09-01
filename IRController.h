@@ -43,8 +43,10 @@ public:
     void sendCommand(bool power, int mode, int temp, int fan, bool swing);
     void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed);
     void setLight(bool state);
-    void setFanMode();
+    void setFanMode(int fan);
     void turnOffAC();
+    int getFanSetting(int fan);  // Add this line
+
 };
 
 #endif

@@ -21,6 +21,8 @@ public:
     FanAccessory(IRController *irCtrl);
     boolean update() override;
     void disable();
+    int getFanSetting(int fan);
+
 };
 
 #endif

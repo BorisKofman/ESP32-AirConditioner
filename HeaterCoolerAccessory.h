@@ -9,8 +9,8 @@ class HeaterCoolerAccessory : public Service::HeaterCooler {
 private:
     DHT *dht;
     IRController *irController;
-    unsigned long lastReadTime = 0;  // Variable to track the last read time
-    const unsigned long readInterval = 2000;  // Example interval of 2 seconds
+    unsigned long lastReadTime = 0;
+    const unsigned long readInterval = 2000;
 
     SpanCharacteristic *active;
     SpanCharacteristic *currentState;

@@ -132,10 +132,8 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         }
         goodweatherAc.setTemp(temp);
         goodweatherAc.setSwing(swing);
-        goodweatherAc.setFan((fan <= 25) ? kGoodweatherFanLow :
-        (fan <= 50) ? kGoodweatherFanMed :
-        (fan <= 75) ? kGoodweatherFanHigh :
-                      kGoodweatherFanAuto);
+        
+        goodweatherAc.setFan(getFanSetting(fan));
 
         }
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
@@ -215,7 +213,7 @@ void IRController::setLight(bool state) {
     }
 }
 
-void IRController::setFanMode() {
+void IRController::setFanMode(int fan) {
     getIRType();  // Ensure the IR type is retrieved before using it
 
     if (irType == "GOODWEATHER") {
@@ -223,7 +221,9 @@ void IRController::setFanMode() {
         delay(10);  // Short delay to ensure the receiver is paused
         
         goodweatherAc.setPower(1);
-        goodweatherAc.setMode(kGoodweatherFan);  // Set mode to fan
+        goodweatherAc.setMode(kGoodweatherFan);  
+        goodweatherAc.setFan(getFanSetting(fan));
+
         Serial.println("Sending IR command to set mode to FAN.");
         
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
@@ -234,7 +234,6 @@ void IRController::setFanMode() {
     }
 }
 
-// New method to turn off the AC
 void IRController::turnOffAC() {
     getIRType();  // Ensure the IR type is retrieved before using it
 
@@ -250,5 +249,19 @@ void IRController::turnOffAC() {
         irrecv.resume();  // Resume IR receiver
     } else {
         Serial.println("Unsupported AC protocol for turning off.");
+    }
+}
+
+int IRController::getFanSetting(int fan) {
+    if (fan <= 20) {
+        return kGoodweatherFanLow;
+    } else if (fan <= 40) {
+        return kGoodweatherFanLow;
+    } else if (fan <= 60) {
+        return kGoodweatherFanMed;
+    } else if (fan <= 80) {
+        return kGoodweatherFanHigh;
+    } else {
+        return kGoodweatherFanAuto;
     }
 }

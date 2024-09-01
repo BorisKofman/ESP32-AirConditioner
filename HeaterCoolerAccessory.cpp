@@ -20,9 +20,9 @@ HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtr
     currentHumidity = new Characteristic::CurrentRelativeHumidity(0);
     swingMode = new Characteristic::SwingMode(0, true);
 
-    coolingTemp->setRange(16, 31, 0.5);
-    heatingTemp->setRange(16, 31, 0.5);
-    rotationSpeed->setRange(0, 100, 25);
+    coolingTemp->setRange(16, 31, 1);
+    heatingTemp->setRange(16, 31, 1);
+    rotationSpeed->setRange(0, 100, 20);
 
     irController->setCharacteristics(active, currentState, coolingTemp, rotationSpeed);
 }
@@ -67,7 +67,6 @@ boolean HeaterCoolerAccessory::update() {
         Serial.println("HeaterCooler is enabled, disabling Fan.");
         fanAccessory->disable();
     }
-
     return true;
 }
 
