@@ -2,11 +2,34 @@
 #include "FanAccessory.h"
 
 extern FanAccessory* fanAccessory;
+#ifdef USE_BME680
+HeaterCoolerAccessory::HeaterCoolerAccessory(Adafruit_BME680 *bmeSensor, IRController *irCtrl, uint8_t sdaPin, uint8_t sclPin)
+    : Service::HeaterCooler(), bme(bmeSensor), irController(irCtrl), sdaPin(sdaPin), sclPin(sclPin) {
 
-HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtrl) 
-    : dht(dhtSensor), irController(irCtrl) {
+    // Initialize I2C for BME680 with custom SDA and SCL pins
+    Wire.setPins(sdaPin, sclPin);
+    Wire.begin(); 
 
+    // Attempt to initialize the BME680 sensor
+    if (!bme->begin()) {
+        Serial.println(F("Could not find a valid BME680 sensor, check wiring!"));
+        while (1); // Loop forever if sensor initialization fails
+    }
+
+    // Configure the BME680 sensor settings
+    bme->setTemperatureOversampling(BME680_OS_8X);
+    bme->setHumidityOversampling(BME680_OS_2X);
+    bme->setPressureOversampling(BME680_OS_4X);
+    bme->setIIRFilterSize(BME680_FILTER_SIZE_3);
+    bme->setGasHeater(320, 150); // 320°C for 150 ms
+
+#else
+HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtrl)
+    : Service::HeaterCooler(), dht(dhtSensor), irController(irCtrl) {
+
+    // Initialize the DHT sensor
     dht->begin();
+#endif
     irController->beginsend();
 
     active = new Characteristic::Active(0, true);
@@ -15,14 +38,14 @@ HeaterCoolerAccessory::HeaterCoolerAccessory(DHT *dhtSensor, IRController *irCtr
     currentTemp = new Characteristic::CurrentTemperature(0);
     coolingTemp = new Characteristic::CoolingThresholdTemperature(24, true);
     heatingTemp = new Characteristic::HeatingThresholdTemperature(27, true);
-    rotationSpeed = new Characteristic::RotationSpeed(50, true);
     unit = new Characteristic::TemperatureDisplayUnits(0, true);
     currentHumidity = new Characteristic::CurrentRelativeHumidity(0);
     swingMode = new Characteristic::SwingMode(0, true);
 
     coolingTemp->setRange(16, 31, 1);
     heatingTemp->setRange(16, 31, 1);
-    rotationSpeed->setRange(0, 100, 25);
+
+    SpanCharacteristic* rotationSpeed = (fanAccessory != nullptr) ? fanAccessory->getRotationSpeed() : nullptr;
 
     irController->setCharacteristics(active, currentState, coolingTemp, rotationSpeed);
 }
@@ -37,8 +60,16 @@ void HeaterCoolerAccessory::loop() {
 }
 
 void HeaterCoolerAccessory::readTemperatureAndHumidity() {
+#ifdef USE_BME680
+    if (!bme->performReading()) {
+        Serial.println(F("Failed to read from BME680 sensor!"));
+        return;
+    }
+    currentTemp->setVal(bme->temperature);
+    currentHumidity->setVal(bme->humidity);
+#else
     float temperature = dht->readTemperature();
-    int humidity = dht->readHumidity();
+    float humidity = dht->readHumidity();
 
     if (!isnan(temperature) && !isnan(humidity)) {
         float hic = dht->computeHeatIndex(temperature, humidity, false);
@@ -52,34 +83,17 @@ void HeaterCoolerAccessory::readTemperatureAndHumidity() {
     } else {
         Serial.println("Failed to read from DHT sensor!");
     }
+#endif
 }
 
 boolean HeaterCoolerAccessory::update() {
     bool power = active->getNewVal() == 1;
     int mode = targetState->getNewVal();
     int temp = (mode == 1) ? heatingTemp->getNewVal() : coolingTemp->getNewVal();
-    int fan = rotationSpeed->getNewVal();
+
+    int fan = (fanAccessory != nullptr && fanAccessory->getRotationSpeed() != nullptr) ? fanAccessory->getRotationSpeed()->getNewVal() : 0;
+
     bool swing = swingMode->getNewVal();
 
     irController->sendCommand(power, mode, temp, fan, swing);
-
-    if (power && fanAccessory != nullptr) {
-        Serial.println("HeaterCooler is enabled, disabling Fan.");
-        fanAccessory->disable();
-    }
-    return true;
-}
-
-void HeaterCoolerAccessory::disable() {
-    active->setVal(0);
-    Serial.println("HeaterCoolerAccessory disabled.");
-}
-
-void HeaterCoolerAccessory::enable() {
-    active->setVal(1);
-    Serial.println("HeaterCoolerAccessory enabled.");
-}
-
-int HeaterCoolerAccessory::getActiveState() {
-    return active->getVal();
 }

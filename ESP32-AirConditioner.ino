@@ -1,4 +1,6 @@
 #include "HomeSpan.h"
+#define USE_BME680
+
 #include "IRController.h"
 #include "HeaterCoolerAccessory.h"
 #include "VirtualSwitchAccessory.h"
@@ -13,7 +15,12 @@
 #define CAPTURE_BUFFER_SIZE 2048
 #define TIMEOUT 15
 
+#ifdef USE_BME680
+Adafruit_BME680 bme; // I2C
+#else
 DHT dht(DHT_PIN, DHT_TYPE);
+#endif
+
 IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true);
 
 FanAccessory* fanAccessory = nullptr;
@@ -39,13 +46,11 @@ void setup() {
     new Characteristic::Name("ESP32 Air Conditioner");
     new Characteristic::Model("ESP32 AC Model");
     new Characteristic::FirmwareRevision("1.0.1");
+#ifdef USE_BME680
+    heaterCoolerAccessory = new HeaterCoolerAccessory(&bme, &irController, 10, 12); // Pass SDA and SCL pins
+#else
     heaterCoolerAccessory = new HeaterCoolerAccessory(&dht, &irController);
-
-
-    new SpanAccessory();
-    new Service::AccessoryInformation();
-    new Characteristic::Identify();
-    new Characteristic::Name("ESP32 Air Conditioner Fan");
+#endif
     fanAccessory = new FanAccessory(&irController);
 
     new SpanAccessory();

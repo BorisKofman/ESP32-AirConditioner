@@ -20,6 +20,7 @@ private:
 
 public:
     FanAccessory(IRController *irCtrl);
+    SpanCharacteristic* getRotationSpeed();
     boolean update() override;
     void disable();
     int getFanSetting(int fan);
