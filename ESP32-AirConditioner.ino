@@ -7,7 +7,7 @@
 Adafruit_BME680 bme; // I2C
 #else
 #include "DHT.h"
-#define DHTPIN 2     // DHT sensor pin
+#define DHTPIN 16     // DHT sensor pin
 #define DHTTYPE DHT22   // DHT sensor type
 DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
 #endif

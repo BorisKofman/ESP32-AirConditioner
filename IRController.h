@@ -41,7 +41,7 @@ public:
     void sendCommand(bool power, int mode, int temp);
     void setCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *coolingTemp); 
     void setLight(bool state);
-    void setFanMode(int fan, bool swing,bool direction);
+    void setFanMode(int power, int fan, bool swing, bool direction);
     void turnOffAC();
     int getFanSetting(int fan); 
 

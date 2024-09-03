@@ -20,19 +20,22 @@ boolean FanAccessory::update() {
     bool swing = swingMode->getNewVal();
     int direction = rotationDirection->getNewVal(); 
     int thermostanstate = thermostatAccessory->getCurrentState(); 
+    int power = 0;
     Serial.print("fan switch direction: ");
     Serial.println(direction);
     if (direction == 0) { 
         thermostatAccessory->setCurrentState(0);
         Serial.println(fanSpeed);
-        if (fanSpeed == 0) {
-          
+        if (fanSpeed > 1) {
+            power = 1;
+        } else {
+            power = 0;
         }
     } else { 
       active->setVal(0); 
     }
 
-    irController->setFanMode(fanSpeed, swing, direction);
+    irController->setFanMode(power, fanSpeed, swing, direction);
     return true; 
 }
 

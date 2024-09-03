@@ -204,7 +204,7 @@ void IRController::setLight(bool state) {
     }
 }
 
-void IRController::setFanMode(int fan, bool swing,bool direction) {
+void IRController::setFanMode(int power, int fan, bool swing,bool direction) {
     getIRType(); 
 
     if (irType == "GOODWEATHER") {
@@ -213,6 +213,10 @@ void IRController::setFanMode(int fan, bool swing,bool direction) {
         if (direction == 0) {
           goodweatherAc.setMode(kGoodweatherFan);
         }
+        if (power != 0){
+          goodweatherAc.setPower(power);
+        }
+
         goodweatherAc.setFan(getFanSetting(fan));
         goodweatherAc.setSwing(swing);
         Serial.println("Sending IR command to set mode to FAN.");
