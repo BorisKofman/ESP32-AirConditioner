@@ -28,12 +28,9 @@ private:
     bool debug;
 
 public:
-    SpanCharacteristic *active;
     SpanCharacteristic *currentState;
-    SpanCharacteristic *coolingTemp;
     SpanCharacteristic *targetState;
-    SpanCharacteristic *rotationSpeed;
-
+    SpanCharacteristic *coolingTemp;
     
     IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug);
     void beginsend();
@@ -41,12 +38,12 @@ public:
     void handleIR();
     void getIRType();
     void clearDecodeResults(decode_results *results);
-    void sendCommand(bool power, int mode, int temp, int fan, bool swing);
-    void setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed); 
+    void sendCommand(bool power, int mode, int temp);
+    void setCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *coolingTemp); 
     void setLight(bool state);
-    void setFanMode(int fan);
+    void setFanMode(int fan, bool swing,bool direction);
     void turnOffAC();
-    int getFanSetting(int fan);  // Add this line
+    int getFanSetting(int fan); 
 
 };
 

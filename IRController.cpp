@@ -21,11 +21,9 @@ void IRController::beginreceive() {
     irrecv.enableIRIn();
 }
 
-void IRController::setCharacteristics(SpanCharacteristic *active, SpanCharacteristic *currentState, SpanCharacteristic *coolingTemp, SpanCharacteristic *rotationSpeed) {
-    this->active = active;
-    this->currentState = currentState;
+void IRController::setCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *coolingTemp) {
+    this->currentState = targetState;
     this->coolingTemp = coolingTemp;
-    this->rotationSpeed = rotationSpeed;
 }
 
 void IRController::handleIR() {
@@ -33,7 +31,7 @@ void IRController::handleIR() {
     if (irrecv.decode(&results)) {
         String type = typeToString(results.decode_type);
         if (type == "UNKNOWN") {
-          Serial.println("Dropping UNKNOWN"); //noise 
+          Serial.println("Dropping UNKNOWN");
           irrecv.resume(); 
           return;
         } 
@@ -41,9 +39,9 @@ void IRController::handleIR() {
         Serial.println(type);
         getIRType();  
         if (irType == "UNKNOWN" || irType == "") {
-          preferences.begin("ac_ctrl", false);  // Re-open
+          preferences.begin("ac_ctrl", false);
           preferences.putString("irType", type);
-          preferences.end();  // Close NVS storage
+          preferences.end();
           Serial.print("AC control type is configured: ");
           Serial.println(type);
           clearDecodeResults(&results);
@@ -54,20 +52,20 @@ void IRController::handleIR() {
           Serial.println(irType);
           if (irType == GOODWEATHER && type == GOODWEATHER) {
             goodweatherAc.setRaw(results.value);
-            active->setVal(goodweatherAc.getPower());
+            targetState->setVal(goodweatherAc.getPower());
             
             if (goodweatherAc.getPower() != 0) {
                 int mode = goodweatherAc.getMode();
                 Serial.println(mode);
                 switch (mode) {
                   case 0: //remote auto homekit auto
-                      currentState->setVal(0);
+                      targetState->setVal(0);
                       break;
                   case 4: //remote heating homekit heating 
-                      currentState->setVal(1);
+                      targetState->setVal(1);
                       break;
                   case 1: //remote cooling homekit cooling 
-                      currentState->setVal(2);
+                      targetState->setVal(2);
                       break;
                   default:
                       // Handle other cases or do nothing
@@ -78,19 +76,19 @@ void IRController::handleIR() {
           }
           else if (irType == AIRTON && type == AIRTON) {
               airtonAc.setRaw(results.value);
-              active->setVal(airtonAc.getPower());
+              targetState->setVal(airtonAc.getPower());
               if (airtonAc.getPower() != 0) {
                 int mode = airtonAc.getMode();
 
                 switch (mode) {
                   case 0: //remote auto homekit auto
-                      currentState->setVal(0);
+                      targetState->setVal(0);
                       break;
                   case 4: //remote heating homekit heating 
-                      currentState->setVal(1);
+                      targetState->setVal(1);
                       break;
                   case 1: //remote cooling homekit cooling 
-                      currentState->setVal(2);
+                      targetState->setVal(2);
                       break;
                   default:
                       // Handle other cases or do nothing
@@ -115,7 +113,7 @@ void IRController::handleIR() {
     }
 }
 
-void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swing) {
+void IRController::sendCommand(bool power, int mode, int temp) {
 
     getIRType();
     if (irType == "GOODWEATHER") {
@@ -123,7 +121,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
       delay(10);  
       goodweatherAc.setPower(power);
       if ( power != 0) {
-        if ( mode == 0) { // Auto
+        if ( mode == 3) { // Auto
           goodweatherAc.setMode(kGoodweatherAuto);
         } else if (mode == 1) { // Heating
           goodweatherAc.setMode(kGoodweatherHeat);  //
@@ -131,10 +129,7 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
           goodweatherAc.setMode(kGoodweatherCool);  // Set mode to cooling
         }
         goodweatherAc.setTemp(temp);
-        goodweatherAc.setSwing(swing);
         
-        goodweatherAc.setFan(getFanSetting(fan));
-
         }
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
         delay(10);  // Short delay to ensure the command is sent
@@ -146,19 +141,15 @@ void IRController::sendCommand(bool power, int mode, int temp, int fan, bool swi
         delay(10);  
         airtonAc.setPower(power);
         if (power != 0) {
-          if ( mode == 0) { // Auto
+          if ( mode == 3) { // Auto
             airtonAc.setMode(kAirtonAuto);
           } else if (mode == 1) { // Heating
             airtonAc.setMode(kAirtonHeat);  //
           } else if (mode == 2) { // Cooling
             airtonAc.setMode(kAirtonCool);  // Set mode to cooling
           }
-          airtonAc.setFan((fan <= 25) ? kAirtonFanLow :
-          (fan <= 50) ? kAirtonFanMed :
-          (fan <= 75) ? kAirtonFanHigh :
-                        kAirtonFanAuto);
+
           airtonAc.setTemp(temp);
-          airtonAc.setSwingV(swing);  
           airtonAc.setLight("on");
           }
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
@@ -213,40 +204,40 @@ void IRController::setLight(bool state) {
     }
 }
 
-void IRController::setFanMode(int fan) {
-    getIRType();  // Ensure the IR type is retrieved before using it
+void IRController::setFanMode(int fan, bool swing,bool direction) {
+    getIRType(); 
 
     if (irType == "GOODWEATHER") {
         irrecv.pause();
-        delay(10);  // Short delay to ensure the receiver is paused
-        
-        goodweatherAc.setPower(1);
-        goodweatherAc.setMode(kGoodweatherFan);  
+        delay(10);  
+        if (direction == 0) {
+          goodweatherAc.setMode(kGoodweatherFan);
+        }
         goodweatherAc.setFan(getFanSetting(fan));
-
+        goodweatherAc.setSwing(swing);
         Serial.println("Sending IR command to set mode to FAN.");
         
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-        delay(10);  // Short delay to ensure the command is sent
-        irrecv.resume();  // Resume IR receiver
+        delay(10);  
+        irrecv.resume();
     } else {
         Serial.println("Unsupported AC protocol for fan mode.");
     }
 }
 
 void IRController::turnOffAC() {
-    getIRType();  // Ensure the IR type is retrieved before using it
+    getIRType(); 
 
     if (irType == "GOODWEATHER") {
         irrecv.pause();
-        delay(10);  // Short delay to ensure the receiver is paused
+        delay(10);
 
-        goodweatherAc.setPower(0);  // Set power to off
+        goodweatherAc.setPower(0); 
         Serial.println("Sending IR command to turn off AC.");
 
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-        delay(10);  // Short delay to ensure the command is sent
-        irrecv.resume();  // Resume IR receiver
+        delay(10);  
+        irrecv.resume();
     } else {
         Serial.println("Unsupported AC protocol for turning off.");
     }

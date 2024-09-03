@@ -6,24 +6,21 @@
 
 class FanAccessory : public Service::Fan {
 private:
-
     SpanCharacteristic *active;
-    SpanCharacteristic *currentFanState;
-    SpanCharacteristic *targetFanState;
     SpanCharacteristic *rotationDirection;
     SpanCharacteristic *fanRotationSpeed;
     SpanCharacteristic *swingMode;
-    SpanCharacteristic *lockPhysicalControls;
-    SpanCharacteristic *configuredName;
-    
+    SpanCharacteristic *currentFanState;
+
     IRController *irController;
 
 public:
     FanAccessory(IRController *irCtrl);
-    SpanCharacteristic* getRotationSpeed();
-    boolean update() override;
-    void disable();
-    int getFanSetting(int fan);
+    boolean update();
+    int getActiveState();  // Getter for currentState
+    int getrotationDirection();  // Getter for currentState
+    void CurrentFanState(int state);
+    void setrotationDirectionState(int state);
 
 };
 
