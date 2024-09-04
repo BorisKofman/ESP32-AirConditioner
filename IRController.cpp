@@ -222,13 +222,46 @@ void IRController::configureAmcorAc(bool power, int mode, int temp) {
 }
 
 int IRController::convertToGoodweatherMode(int homeKitMode) {
-    return homeKitMode;
+    switch (homeKitMode) {
+        case 0:  // HomeKit Auto
+            return kGoodweatherAuto;
+        case 1:  // HomeKit Heat
+            return kGoodweatherHeat;
+        case 2:  // HomeKit Cool
+            return kGoodweatherCool;
+        case 3:  // HomeKit Off
+            return kGoodweatherFan;
+        default:
+            return kGoodweatherAuto;
+    }
 }
 
 int IRController::convertToAirtonMode(int homeKitMode) {
-    return homeKitMode;
+    switch (homeKitMode) {
+        case 0:  // HomeKit Auto
+            return kAirtonAuto;
+        case 1:  // HomeKit Heat
+            return kAirtonHeat;
+        case 2:  // HomeKit Cool
+            return kAirtonCool;
+        case 3:  // HomeKit Off
+            return kAirtonFan;
+        default:
+            return kAirtonAuto;
+    }
 }
 
 int IRController::convertToAmcorMode(int homeKitMode) {
-    return homeKitMode;
+    switch (homeKitMode) {
+        case 0:  // HomeKit Auto
+            return kAmcorAuto;
+        case 1:  // HomeKit Heat
+            return kAmcorHeat;
+        case 2:  // HomeKit Cool
+            return kAmcorCool;
+        case 3:  // HomeKit Off
+            return kAmcorFan;
+        default:
+            return kAmcorAuto;
+    }
 }
