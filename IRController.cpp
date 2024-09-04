@@ -188,17 +188,17 @@ int IRController::getFanSetting(const String& protocol, int fan) {
         }
     } else if (protocol == "AIRTON") {
         if (fan <= 25) {
-            return kAirtonFanLow;  // Replace with actual constants
+            return kAirtonFanLow; 
         } else if (fan <= 50) {
-            return kAirtonFanMed;  // Replace with actual constants
+            return kAirtonFanMed; 
         } else if (fan <= 75) {
-            return kAirtonFanHigh;  // Replace with actual constants
+            return kAirtonFanHigh;
         } else {
-            return kAirtonFanAuto;  // Replace with actual constants
+            return kAirtonFanAuto;
         }
     } else {
         Serial.println("Unknown protocol for fan settings.");
-        return -1; // Or some default value or error code
+        return -1;
     }
 }
 

@@ -17,8 +17,8 @@ private:
 public:
     FanAccessory(IRController *irCtrl);
     boolean update();
-    int getActiveState();  // Getter for currentState
-    int getrotationDirection();  // Getter for currentState
+    int getActiveState(); 
+    int getrotationDirection(); 
     void CurrentFanState(int state);
     void setrotationDirectionState(int state);
 

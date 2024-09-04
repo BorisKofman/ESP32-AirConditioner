@@ -120,4 +120,4 @@ void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction
     int convertToAmcorMode(int homeKitMode);
 };
 
-#endif  // IR_CONTROLLER_H
+#endif
