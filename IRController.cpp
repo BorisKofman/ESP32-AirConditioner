@@ -213,6 +213,8 @@ void IRController::configureAirtonAc(bool power, int mode, int temp) {
     airtonAc.setPower(power);
     airtonAc.setMode(convertToAirtonMode(mode));
     airtonAc.setTemp(temp);
+    airtonAc.setLight("on");
+
 }
 
 void IRController::configureAmcorAc(bool power, int mode, int temp) {
