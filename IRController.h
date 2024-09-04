@@ -58,6 +58,7 @@ public:
     void setLight(bool state);
     void setFanMode(int power, int fan, bool swing, bool direction);
     int getFanSetting(const String& protocol, int fan);
+    
     template<typename ACType>
     void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
         targetState->setVal(ac.getPower());
