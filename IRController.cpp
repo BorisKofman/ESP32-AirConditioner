@@ -67,7 +67,7 @@ void IRController::handleIR() {
                 memcpy(raw, &results.value, sizeof(results.value));  // Use 'memcpy' correctly
                 amcorAc.setRaw(raw);  // Now 'raw' is in scope and initialized properly
                 processACState(amcorAc, targetState, coolingTemp);
-            } 
+            }
             else {
                 Serial.println("Skipping unsupported protocol.");
             }
