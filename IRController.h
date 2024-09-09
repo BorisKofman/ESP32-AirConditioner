@@ -5,24 +5,30 @@
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
+#include <Preferences.h>
+
 #include <ir_Goodweather.h>
 #include <ir_Airton.h>
 #include <ir_Amcor.h>
-#include <Preferences.h>
+#include <ir_Kelon.h>
 
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
 #define AMCOR "AMCOR"
+#define KELON "KELON"
+
 
 class IRController {
 private:
     IRsend irsend;
     IRrecv irrecv;
-    IRAirtonAc airtonAc;
-    IRGoodweatherAc goodweatherAc;
-    IRAmcorAc amcorAc;
     Preferences preferences;
     String irType;
+
+    IRGoodweatherAc goodweatherAc;
+    IRAirtonAc airtonAc;
+    IRAmcorAc amcorAc;
+    IRKelonAc kelonAc;
 
     uint16_t recvPin;
     uint16_t sendPin;
@@ -58,32 +64,11 @@ public:
     void setLight(bool state);
     void setFanMode(int power, int fan, bool swing, bool direction);
     int getFanSetting(const String& protocol, int fan);
-    
-    template<typename ACType>
-    void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
-        targetState->setVal(ac.getPower());
-        
-        if (ac.getPower() != 0) {
-            int mode = ac.getMode();
-            switch (mode) {
-                case 0:  // Remote auto, HomeKit auto
-                    targetState->setVal(0);
-                    break;
-                case 4:  // Remote heating, HomeKit heating
-                    targetState->setVal(1);
-                    break;
-                case 1:  // Remote cooling, HomeKit cooling
-                    targetState->setVal(2);
-                    break;
-                default:
-                    // Handle other cases or do nothing
-                    break;
-            }
-            coolingTemp->setVal(ac.getTemp());
-        }
-    }
 
-  template<typename ACType>
+template<typename ACType>
+void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp);
+
+template<typename ACType>
 void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction) {
     if constexpr (std::is_same<ACType, IRGoodweatherAc>::value) {
         if (direction == 0) {
@@ -100,10 +85,17 @@ void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction
             ac.setMode(kAmcorFan);  // Use Amcor-specific fan mode
         }
         ac.setFan(getFanSetting("AMCOR", fan));
+    } else if constexpr (std::is_same<ACType, IRKelonAc>::value) {
+        if (direction == 0) {
+            ac.setMode(kKelonModeFan);  // Use Kelon-specific fan mode
+        }
+        ac.setFan(getFanSetting("KELON", fan));
     }
 
-    if (power != 0) {
-        ac.setPower(power);
+    if constexpr (std::is_same<ACType, IRKelonAc>::value) {
+        ac.setTogglePower(power);  // Use ensurePower for Kelon
+    } else {
+        ac.setPower(power);  // Use setPower for other AC types
     }
 
     if constexpr (has_setSwing<ACType>::value) {
@@ -116,9 +108,12 @@ void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction
     void configureGoodweatherAc(bool power, int mode, int temp);
     void configureAirtonAc(bool power, int mode, int temp);
     void configureAmcorAc(bool power, int mode, int temp);
+    void configureKelonAc(bool power, int mode, int temp);
     int convertToGoodweatherMode(int homeKitMode);
     int convertToAirtonMode(int homeKitMode);
     int convertToAmcorMode(int homeKitMode);
+    int convertToKelonMode(int homeKitMode);
+
 };
 
 #endif
