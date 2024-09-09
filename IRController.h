@@ -62,9 +62,10 @@ public:
     template<typename ACType>
     void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
         targetState->setVal(ac.getPower());
-        
+        Serial.print(ac.getPower());
         if (ac.getPower() != 0) {
             int mode = ac.getMode();
+            Serial.print(mode);
             switch (mode) {
                 case 0:  // Remote auto, HomeKit auto
                     targetState->setVal(0);

@@ -84,6 +84,29 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     irrecv.pause();
     delay(10);
 
+#ifdef USE_PIXEL  // Only trigger pixel if USE_PIXEL is enabled
+    switch (mode) {
+        case 0:  // Auto mode
+            homeSpan.statusPixel->setColor(0, 255, 0);  // Set to green for Auto
+            delay(2000);  // Flash for 2 seconds
+            homeSpan.statusPixel->setColor(0, 0, 0);  // Turn off pixel
+            break;
+        case 1:  // Cool mode
+            homeSpan.statusPixel->setColor(0, 0, 255);  // Set to blue for Cool
+            delay(2000);  // Flash for 2 seconds
+            homeSpan.statusPixel->setColor(0, 0, 0);  // Turn off pixel
+            break;
+        case 4:  // Heat mode
+            homeSpan.statusPixel->setColor(255, 0, 0);  // Set to red for Heat
+            delay(2000);  // Flash for 2 seconds
+            homeSpan.statusPixel->setColor(0, 0, 0);  // Turn off pixel
+            break;
+        default:
+            break;
+    }
+#endif
+
+
     if (irType == "GOODWEATHER") {
         configureGoodweatherAc(power, mode, temp);
         irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
