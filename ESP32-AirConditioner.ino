@@ -50,7 +50,7 @@ void setup() {
     new Characteristic::Identify(); 
     new Characteristic::Name("Air Conditioner");
     new Characteristic::Model("ESP32 AC Model");
-    new Characteristic::FirmwareRevision("1.0.2");
+    new Characteristic::FirmwareRevision("1.0.3");
 #if USE_BME680 == 1
     thermostatAccessory = new ThermostatAccessory(&bme, &irController, 10, 12); 
 #else

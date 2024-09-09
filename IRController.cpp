@@ -1,13 +1,13 @@
 #include "IRController.h"
 #include <cstring> 
 
-
 const uint8_t kTolerancePercentage = 25; 
 const uint16_t kMinUnknownSize = 12; 
 
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
-      irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), amcorAc(sendPin) {
+      irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), 
+      amcorAc(sendPin), kelonAc(sendPin) { 
 }
 
 void IRController::beginsend() {
@@ -68,10 +68,12 @@ void IRController::handleIR() {
                 amcorAc.setRaw(raw);  // Now 'raw' is in scope and initialized properly
                 processACState(amcorAc, targetState, coolingTemp);
             }
-            else {
+            else if (irType == KELON && type == KELON) {
+                kelonAc.setRaw(results.value);
+                processACState(kelonAc, targetState, coolingTemp);
+            } else {
                 Serial.println("Skipping unsupported protocol.");
             }
-
             clearDecodeResults(&results);
             irrecv.resume(); 
             return; 
@@ -116,6 +118,9 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     } else if (irType == "AMCOR") {
         configureAmcorAc(power, mode, temp);
         irsend.sendAmcor(amcorAc.getRaw(), kAmcorBits);
+    } else if (irType == "KELON") {
+        configureKelonAc(power, mode, temp);
+        irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
     } else {
         Serial.println("AC control type is not configured.");
     }
@@ -180,6 +185,10 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
         this->configureFanMode(airtonAc, power, fan, swing, direction);
         Serial.println("Sending IR command to set mode to FAN for AIRTON.");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
+    } else if (irType == "KELON") {
+        this->configureFanMode(kelonAc, power, fan, swing, direction);
+        Serial.println("Sending IR command to set mode to FAN for AIRTON.");
+        irsend.sendAirton(kelonAc.getRaw(), kAirtonBits);
     } else {
         Serial.println("Unsupported AC protocol for fan mode.");
     }
@@ -219,6 +228,16 @@ int IRController::getFanSetting(const String& protocol, int fan) {
         } else {
             return kAirtonFanAuto;
         }
+    } else if (protocol == "KELON") {
+        if (fan <= 25) {
+            return kKelonFanMin;
+        } else if (fan <= 50) {
+            return kKelonFanMedium;
+        } else if (fan <= 75) {
+            return kKelonFanMax;
+        } else {
+            return kKelonFanAuto;
+        }
     } else {
         Serial.println("Unknown protocol for fan settings.");
         return -1;
@@ -244,6 +263,12 @@ void IRController::configureAmcorAc(bool power, int mode, int temp) {
     amcorAc.setPower(power);
     amcorAc.setMode(convertToAmcorMode(mode));
     amcorAc.setTemp(temp);
+}
+
+void IRController::configureKelonAc(bool power, int mode, int temp) {
+    kelonAc.setTogglePower(power);
+    kelonAc.setMode(convertToKelonMode(mode));
+    kelonAc.setTemp(temp);
 }
 
 int IRController::convertToGoodweatherMode(int homeKitMode) {
@@ -288,5 +313,55 @@ int IRController::convertToAmcorMode(int homeKitMode) {
             return kAmcorFan;
         default:
             return kAmcorAuto;
+    }
+}
+
+int IRController::convertToKelonMode(int homeKitMode) {
+    switch (homeKitMode) {
+        case 0:  // HomeKit Auto
+            return kKelonModeSmart;
+        case 1:  // HomeKit Heat
+            return kKelonModeHeat;
+        case 2:  // HomeKit Cool
+            return kKelonModeCool;
+        case 3:  // HomeKit Off
+            return kKelonModeFan;
+        default:
+            return kKelonModeSmart;
+    }
+}
+
+template<typename ACType>
+void IRController::processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
+    if constexpr (std::is_same<ACType, IRKelonAc>::value) {
+        targetState->setVal(ac.getTogglePower() ? 1 : 0);
+    } else {
+        targetState->setVal(ac.getPower() ? 1 : 0);  // For other ACs that have getPower()
+    }
+
+    bool isPoweredOn;
+    if constexpr (std::is_same<ACType, IRKelonAc>::value) {
+        isPoweredOn = ac.getTogglePower();
+    } else {
+        isPoweredOn = ac.getPower() != 0;
+    }
+
+    if (isPoweredOn) {  // If the AC is powered on, process the mode and temperature
+        int mode = ac.getMode();
+        switch (mode) {
+            case 0:  // Remote auto, HomeKit auto
+                targetState->setVal(0);
+                break;
+            case 4:  // Remote heating, HomeKit heating
+                targetState->setVal(1);
+                break;
+            case 1:  // Remote cooling, HomeKit cooling
+                targetState->setVal(2);
+                break;
+            default:
+                // Handle other cases or do nothing
+                break;
+        }
+        coolingTemp->setVal(ac.getTemp());
     }
 }
