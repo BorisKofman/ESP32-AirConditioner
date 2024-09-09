@@ -34,6 +34,7 @@ void setup() {
     irController.beginreceive();
 
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
+    homeSpan.setStatusAutoOff(5);
     homeSpan.begin(Category::Bridges, "ACBridge");
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
