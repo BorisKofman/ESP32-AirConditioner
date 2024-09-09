@@ -59,30 +59,49 @@ public:
     void setFanMode(int power, int fan, bool swing, bool direction);
     int getFanSetting(const String& protocol, int fan);
     
-    template<typename ACType>
-    void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
-        targetState->setVal(ac.getPower());
-        Serial.print(ac.getPower());
-        if (ac.getPower() != 0) {
-            int mode = ac.getMode();
-            Serial.print(mode);
-            switch (mode) {
-                case 0:  // Remote auto, HomeKit auto
-                    targetState->setVal(0);
-                    break;
-                case 4:  // Remote heating, HomeKit heating
-                    targetState->setVal(1);
-                    break;
-                case 1:  // Remote cooling, HomeKit cooling
-                    targetState->setVal(2);
-                    break;
-                default:
-                    // Handle other cases or do nothing
-                    break;
-            }
+template<typename ACType>
+void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
+    int power = ac.getPower();
+    Serial.print("Power: ");
+    Serial.println(power);
+
+    if (power == 0) {
+        // AC is off, set HomeKit state to 3 (off)
+        targetState->setVal(3);
+        Serial.println("AC is off, setting state to 3 (off)");
+    } else {
+        // AC is on, set HomeKit state based on mode
+        int mode = ac.getMode();
+        Serial.print("Mode: ");
+        Serial.println(mode);
+
+        switch (mode) {
+            case 0:  // Remote auto, HomeKit auto
+                targetState->setVal(0);
+                Serial.println("Setting state to 0 (auto)");
+                break;
+            case 4:  // Remote heating, HomeKit heating
+                targetState->setVal(1);
+                Serial.println("Setting state to 1 (heating)");
+                break;
+            case 1:  // Remote cooling, HomeKit cooling
+                targetState->setVal(2);
+                Serial.println("Setting state to 2 (cooling)");
+                break;
+            default:
+                // Handle other modes if necessary
+                Serial.println("Unknown mode, no state change");
+                break;
+        }
+
+        // Update cooling temperature in HomeKit
+        if (coolingTemp != nullptr) {
             coolingTemp->setVal(ac.getTemp());
+            Serial.print("Setting cooling temperature to: ");
+            Serial.println(ac.getTemp());
         }
     }
+}
 
   template<typename ACType>
 void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction) {
