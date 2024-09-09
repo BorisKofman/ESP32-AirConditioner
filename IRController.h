@@ -66,7 +66,7 @@ public:
     int getFanSetting(const String& protocol, int fan);
 
 template<typename ACType>
-void processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp);
+void processACState(ACType& ac); //, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp
 
 template<typename ACType>
 void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction) {

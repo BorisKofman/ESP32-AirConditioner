@@ -56,21 +56,21 @@ void IRController::handleIR() {
 
             if (irType == GOODWEATHER && type == GOODWEATHER) {
                 goodweatherAc.setRaw(results.value);
-                processACState(goodweatherAc, targetState, coolingTemp);
+                processACState(goodweatherAc); //, targetState, coolingTemp
             }
             else if (irType == AIRTON && type == AIRTON) {
                 airtonAc.setRaw(results.value);
-                processACState(airtonAc, targetState, coolingTemp);
+                processACState(airtonAc); //, targetState, coolingTemp);
             }
             else if (irType == AMCOR && type == AMCOR) {
                 uint8_t raw[sizeof(results.value)];  // Declare the 'raw' array here
                 memcpy(raw, &results.value, sizeof(results.value));  // Use 'memcpy' correctly
                 amcorAc.setRaw(raw);  // Now 'raw' is in scope and initialized properly
-                processACState(amcorAc, targetState, coolingTemp);
+                processACState(amcorAc); //, targetState, coolingTemp);
             }
             else if (irType == KELON && type == KELON) {
                 kelonAc.setRaw(results.value);
-                processACState(kelonAc, targetState, coolingTemp);
+                processACState(kelonAc);//, targetState, coolingTemp);
             } else {
                 Serial.println("Skipping unsupported protocol.");
             }
@@ -85,6 +85,29 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     getIRType();
     irrecv.pause();
     delay(10);
+
+// #ifdef USE_PIXEL  // Only trigger pixel if USE_PIXEL is enabled
+//     switch (mode) {
+//         case 0:  // Auto mode
+//             statusPixel.setColor(0, 255, 0);
+//             delay(2000);  // Flash for 2 seconds
+//             homeSpan.statusPixel->setColor(0, 0, 0);  // Turn off pixel
+//             break;
+//         case 1:  // Cool mode
+//             homeSpan.statusPixel->setColor(0, 0, 255);  // Set to blue for Cool
+//             delay(2000);  // Flash for 2 seconds
+//             homeSpan.statusPixel->setColor(0, 0, 0);  // Turn off pixel
+//             break;
+//         case 4:  // Heat mode
+//             homeSpan.statusPixel->setColor(255, 0, 0);  // Set to red for Heat
+//             delay(2000);  // Flash for 2 seconds
+//             homeSpan.statusPixel->setColor(0, 0, 0);  // Turn off pixel
+//             break;
+//         default:
+//             break;
+//     }
+// #endif
+
 
     if (irType == "GOODWEATHER") {
         configureGoodweatherAc(power, mode, temp);
@@ -250,14 +273,12 @@ void IRController::configureKelonAc(bool power, int mode, int temp) {
 
 int IRController::convertToGoodweatherMode(int homeKitMode) {
     switch (homeKitMode) {
-        case 0:  // HomeKit Auto
-            return kGoodweatherAuto;
         case 1:  // HomeKit Heat
             return kGoodweatherHeat;
         case 2:  // HomeKit Cool
             return kGoodweatherCool;
-        case 3:  // HomeKit Off
-            return kGoodweatherFan;
+        case 3:  // HomeKit auto
+            return kGoodweatherAuto;
         default:
             return kGoodweatherAuto;
     }
@@ -265,14 +286,12 @@ int IRController::convertToGoodweatherMode(int homeKitMode) {
 
 int IRController::convertToAirtonMode(int homeKitMode) {
     switch (homeKitMode) {
-        case 0:  // HomeKit Auto
-            return kAirtonAuto;
         case 1:  // HomeKit Heat
             return kAirtonHeat;
         case 2:  // HomeKit Cool
             return kAirtonCool;
-        case 3:  // HomeKit Off
-            return kAirtonFan;
+        case 3:  // HomeKit auto
+            return kAirtonAuto;
         default:
             return kAirtonAuto;
     }
@@ -280,14 +299,12 @@ int IRController::convertToAirtonMode(int homeKitMode) {
 
 int IRController::convertToAmcorMode(int homeKitMode) {
     switch (homeKitMode) {
-        case 0:  // HomeKit Auto
-            return kAmcorAuto;
         case 1:  // HomeKit Heat
             return kAmcorHeat;
         case 2:  // HomeKit Cool
             return kAmcorCool;
         case 3:  // HomeKit Off
-            return kAmcorFan;
+            return kAmcorAuto;
         default:
             return kAmcorAuto;
     }
@@ -295,27 +312,19 @@ int IRController::convertToAmcorMode(int homeKitMode) {
 
 int IRController::convertToKelonMode(int homeKitMode) {
     switch (homeKitMode) {
-        case 0:  // HomeKit Auto
-            return kKelonModeSmart;
         case 1:  // HomeKit Heat
             return kKelonModeHeat;
         case 2:  // HomeKit Cool
             return kKelonModeCool;
-        case 3:  // HomeKit Off
-            return kKelonModeFan;
+        case 3:  // HomeKit auto
+            return kKelonModeSmart;
         default:
             return kKelonModeSmart;
     }
 }
 
 template<typename ACType>
-void IRController::processACState(ACType& ac, SpanCharacteristic* targetState, SpanCharacteristic* coolingTemp) {
-    if constexpr (std::is_same<ACType, IRKelonAc>::value) {
-        targetState->setVal(ac.getTogglePower() ? 1 : 0);
-    } else {
-        targetState->setVal(ac.getPower() ? 1 : 0);  // For other ACs that have getPower()
-    }
-
+void IRController::processACState(ACType& ac) {
     bool isPoweredOn;
     if constexpr (std::is_same<ACType, IRKelonAc>::value) {
         isPoweredOn = ac.getTogglePower();
@@ -323,20 +332,23 @@ void IRController::processACState(ACType& ac, SpanCharacteristic* targetState, S
         isPoweredOn = ac.getPower() != 0;
     }
 
-    if (isPoweredOn) {  // If the AC is powered on, process the mode and temperature
+    if (!isPoweredOn) {  // If the AC is powered off, set the state to 3 (off)
+        currentState->setVal(0);
+    } 
+    else if (isPoweredOn) {  // If the AC is powered on, process the mode and temperature
         int mode = ac.getMode();
         switch (mode) {
             case 0:  // Remote auto, HomeKit auto
-                targetState->setVal(0);
+                currentState->setVal(3);
                 break;
             case 4:  // Remote heating, HomeKit heating
-                targetState->setVal(1);
+                currentState->setVal(1);
                 break;
             case 1:  // Remote cooling, HomeKit cooling
-                targetState->setVal(2);
+                currentState->setVal(2);
                 break;
             default:
-                // Handle other cases or do nothing
+                currentState->setVal(3);  // Default to auto
                 break;
         }
         coolingTemp->setVal(ac.getTemp());
