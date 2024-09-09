@@ -9,8 +9,6 @@
 Adafruit_BME680 bme; // I2C
 #else
 #include "DHT.h"
-#define DHTPIN 16     // DHT sensor pin
-#define DHTTYPE DHT22   // DHT sensor type
 DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
 #endif
 
@@ -50,7 +48,7 @@ void setup() {
     new Characteristic::Identify(); 
     new Characteristic::Name("Air Conditioner");
     new Characteristic::Model("ESP32 AC Model");
-    new Characteristic::FirmwareRevision("1.0.3");
+    new Characteristic::FirmwareRevision("1.1.1");
 #if USE_BME680 == 1
     thermostatAccessory = new ThermostatAccessory(&bme, &irController, 10, 12); 
 #else

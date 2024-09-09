@@ -12,7 +12,8 @@
 #define TIMEOUT 15
 
 #define USE_BME680 0
-
+#define DHTPIN 16     // DHT sensor pin
+#define DHTTYPE DHT22   // DHT sensor type
 
 
 #endif
