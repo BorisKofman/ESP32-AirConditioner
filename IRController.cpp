@@ -37,60 +37,44 @@ void IRController::handleIR() {
             irrecv.resume(); 
             return;
         } 
-
         Serial.print("Received signal from: ");
         Serial.println(type);
-        getIRType();  // Get the previously saved IR type
+        getIRType();  
 
         if (irType == "UNKNOWN" || irType == "") {
-            // If IR type is not configured, save the new type
             preferences.begin("ac_ctrl", false);
             preferences.putString("irType", type);
             preferences.end();
-            Serial.print("AC control type is now configured: ");
+            Serial.print("AC control type is configured: ");
             Serial.println(type);
             clearDecodeResults(&results);
             irrecv.resume(); 
             return;
         } else {
-            // If the IR type is already configured, ensure it is a valid type
             Serial.print("AC control already configured protocol: ");
             Serial.println(irType);
 
-            // Check if irType matches a known type
-            if (irType != GOODWEATHER && irType != AIRTON && irType != AMCOR) {
-                Serial.println("Error: Unsupported IR type found in preferences.");
-                clearDecodeResults(&results);
-                irrecv.resume();
-                return;
-            }
-
-            // Ensure targetState and coolingTemp are valid before proceeding
-            if (targetState == nullptr || coolingTemp == nullptr) {
-                Serial.println("Error: targetState or coolingTemp is null. Aborting.");
-                clearDecodeResults(&results);
-                irrecv.resume(); 
-                return;
-            }
-
-            // Handle the protocol
             if (irType == GOODWEATHER && type == GOODWEATHER) {
                 goodweatherAc.setRaw(results.value);
                 processACState(goodweatherAc, targetState, coolingTemp);
-            } else if (irType == AIRTON && type == AIRTON) {
+            }
+            else if (irType == AIRTON && type == AIRTON) {
                 airtonAc.setRaw(results.value);
                 processACState(airtonAc, targetState, coolingTemp);
-            } else if (irType == AMCOR && type == AMCOR) {
-                uint8_t raw[sizeof(results.value)];
-                memcpy(raw, &results.value, sizeof(results.value));
-                amcorAc.setRaw(raw);
+            }
+            else if (irType == AMCOR && type == AMCOR) {
+                uint8_t raw[sizeof(results.value)];  // Declare the 'raw' array here
+                memcpy(raw, &results.value, sizeof(results.value));  // Use 'memcpy' correctly
+                amcorAc.setRaw(raw);  // Now 'raw' is in scope and initialized properly
                 processACState(amcorAc, targetState, coolingTemp);
-            } else {
+            }
+            else {
                 Serial.println("Skipping unsupported protocol.");
             }
 
             clearDecodeResults(&results);
-            irrecv.resume();
+            irrecv.resume(); 
+            return; 
         }
     }
 }
