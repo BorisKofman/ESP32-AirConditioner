@@ -11,12 +11,14 @@
 #include <ir_Airton.h>
 #include <ir_Amcor.h>
 #include <ir_Kelon.h>
+#include <ir_Teco.h>
 
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
 #define AMCOR "AMCOR"
 #define KELON "KELON"
-
+#define KELON168 "KELON"
+#define TECO "TECO"
 
 class IRController {
 private:
@@ -29,7 +31,9 @@ private:
     IRAirtonAc airtonAc;
     IRAmcorAc amcorAc;
     IRKelonAc kelonAc;
-
+    using IRKelonAc168 = IRKelonAc;
+    IRTecoAc tecoAc;
+    
     uint16_t recvPin;
     uint16_t sendPin;
     uint16_t captureBufferSize;
@@ -85,17 +89,29 @@ void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction
             ac.setMode(kAmcorFan);  // Use Amcor-specific fan mode
         }
         ac.setFan(getFanSetting("AMCOR", fan));
-    } else if constexpr (std::is_same<ACType, IRKelonAc>::value) {
+    } else if constexpr (std::is_same<ACType, IRKelonAc>::value || std::is_same<ACType, IRKelonAc168>::value) {
         if (direction == 0) {
             ac.setMode(kKelonModeFan);  // Use Kelon-specific fan mode
         }
         ac.setFan(getFanSetting("KELON", fan));
-    }
 
-    if constexpr (std::is_same<ACType, IRKelonAc>::value) {
-        ac.setTogglePower(power);  // Use ensurePower for Kelon
-    } else {
-        ac.setPower(power);  // Use setPower for other AC types
+        if constexpr (std::is_same<ACType, IRKelonAc>::value) {
+            ac.setTogglePower(power);  // Use ensurePower for Kelon
+        } else {
+            ac.setPower(power);  // Use setPower for other AC types
+        }
+    } else if constexpr (std::is_same<ACType, IRTecoAc>::value) {  // Add support for TECO
+        if (direction == 0) {
+            ac.setMode(kTecoFan);  // Use TECO-specific fan mode
+        }
+        ac.setFan(getFanSetting("TECO", fan));
+        ac.setPower(power);  // Use setPower for TECO
+
+        if constexpr (has_setSwing<ACType>::value) {
+            ac.setSwing(swing);
+        } else if constexpr (has_setSwingV<ACType>::value) {
+            ac.setSwingV(swing);
+        }
     }
 
     if constexpr (has_setSwing<ACType>::value) {
@@ -109,11 +125,12 @@ void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction
     void configureAirtonAc(bool power, int mode, int temp);
     void configureAmcorAc(bool power, int mode, int temp);
     void configureKelonAc(bool power, int mode, int temp);
+    void configureTecoAc(bool power, int mode, int temp);
     int convertToGoodweatherMode(int homeKitMode);
     int convertToAirtonMode(int homeKitMode);
     int convertToAmcorMode(int homeKitMode);
     int convertToKelonMode(int homeKitMode);
-
+    int convertToTecoMode(int homeKitMode);
 };
 
 #endif
