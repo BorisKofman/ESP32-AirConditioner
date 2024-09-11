@@ -7,7 +7,7 @@ const uint16_t kMinUnknownSize = 12;
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
       irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), 
-      amcorAc(sendPin), kelonAc(sendPin) { 
+      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin) { 
 }
 
 void IRController::beginsend() {
@@ -68,10 +68,15 @@ void IRController::handleIR() {
                 amcorAc.setRaw(raw);  // Now 'raw' is in scope and initialized properly
                 processACState(amcorAc); //, targetState, coolingTemp);
             }
-            else if (irType == KELON && type == KELON) {
+            else if ((irType == KELON || irType == KELON168) && (type == KELON || type == KELON168)) {
+
                 kelonAc.setRaw(results.value);
                 processACState(kelonAc);//, targetState, coolingTemp);
-            } else {
+            } else if (irType == TECO && type == TECO) {
+                tecoAc.setRaw(results.value);
+                processACState(tecoAc);
+            }
+            else {
                 Serial.println("Skipping unsupported protocol.");
             }
             clearDecodeResults(&results);
@@ -95,9 +100,14 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     } else if (irType == "AMCOR") {
         configureAmcorAc(power, mode, temp);
         irsend.sendAmcor(amcorAc.getRaw(), kAmcorBits);
-    } else if (irType == "KELON") {
+    } else if (irType == "KELON" || irType == "KELON168") {
         configureKelonAc(power, mode, temp);
-        irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
+        uint8_t kelon168Data[21];
+        kelonAc.getRaw(kelon168Data);
+        irsend.sendKelon168(kelon168Data, sizeof(kelon168Data), kKelonBits);
+    } else if (irType == TECO) {
+        configureTecoAc(power, mode, temp);
+        irsend.sendTeco(tecoAc.getRaw(), kTecoBits);
     } else {
         Serial.println("AC control type is not configured.");
     }
@@ -162,10 +172,12 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
         this->configureFanMode(airtonAc, power, fan, swing, direction);
         Serial.println("Sending IR command to set mode to FAN for AIRTON.");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
-    } else if (irType == "KELON") {
+    } else if (irType == "KELON" || irType == "KELON168") {
         this->configureFanMode(kelonAc, power, fan, swing, direction);
-        Serial.println("Sending IR command to set mode to FAN for AIRTON.");
-        irsend.sendAirton(kelonAc.getRaw(), kAirtonBits);
+        Serial.println("Sending IR command to set mode to FAN for KELON168.");
+        uint8_t kelon168Data[21];
+        kelonAc.getRaw(kelon168Data);
+        irsend.sendKelon168(kelon168Data, sizeof(kelon168Data), kKelonBits);
     } else {
         Serial.println("Unsupported AC protocol for fan mode.");
     }
@@ -205,7 +217,7 @@ int IRController::getFanSetting(const String& protocol, int fan) {
         } else {
             return kAirtonFanAuto;
         }
-    } else if (protocol == "KELON") {
+      } else if (protocol == "KELON" || protocol == "KELON168") {
         if (fan <= 25) {
             return kKelonFanMin;
         } else if (fan <= 50) {
@@ -215,7 +227,17 @@ int IRController::getFanSetting(const String& protocol, int fan) {
         } else {
             return kKelonFanAuto;
         }
-    } else {
+      } else if (protocol == "TECO") {
+        if (fan <= 25) {
+            return kTecoFanLow;
+        } else if (fan <= 50) {
+            return kTecoFanMed;
+        } else if (fan <= 75) {
+            return kTecoFanHigh;
+        } else {
+            return kTecoFanAuto;
+        }
+      } else {
         Serial.println("Unknown protocol for fan settings.");
         return -1;
     }
@@ -246,6 +268,12 @@ void IRController::configureKelonAc(bool power, int mode, int temp) {
     kelonAc.setTogglePower(power);
     kelonAc.setMode(convertToKelonMode(mode));
     kelonAc.setTemp(temp);
+}
+
+void IRController::configureTecoAc(bool power, int mode, int temp) {
+    tecoAc.setPower(power);
+    tecoAc.setMode(convertToTecoMode(mode));
+    tecoAc.setTemp(temp);
 }
 
 int IRController::convertToGoodweatherMode(int homeKitMode) {
@@ -300,6 +328,19 @@ int IRController::convertToKelonMode(int homeKitMode) {
     }
 }
 
+int IRController::convertToTecoMode(int homeKitMode) {
+    switch (homeKitMode) {
+        case 1:  // HomeKit Heat
+            return kTecoHeat;   
+        case 2:  // HomeKit Cool
+            return kTecoCool;   
+        case 3:  // HomeKit Auto
+            return kTecoAuto; 
+        default:
+            return kTecoAuto;
+    }
+}
+
 template<typename ACType>
 void IRController::processACState(ACType& ac) {
     bool isPoweredOn;
@@ -311,7 +352,7 @@ void IRController::processACState(ACType& ac) {
 
     if (!isPoweredOn) {  // If the AC is powered off, set the state to 3 (off)
         currentState->setVal(0);
-    } 
+    }
     else if (isPoweredOn) {  // If the AC is powered on, process the mode and temperature
         int mode = ac.getMode();
         switch (mode) {
