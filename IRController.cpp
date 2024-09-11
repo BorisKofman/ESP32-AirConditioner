@@ -102,8 +102,10 @@ void IRController::sendCommand(bool power, int mode, int temp) {
         irsend.sendAmcor(amcorAc.getRaw(), kAmcorBits);
     } else if (irType == "KELON" || irType == "KELON168") {
         configureKelonAc(power, mode, temp);
-        uint8_t kelon168Data[21];
-        kelonAc.getRaw(kelon168Data);
+        uint64_t rawData = kelonAc.getRaw();  // Get raw data as uint64_t
+        // Convert uint64_t to a uint8_t array if needed
+        uint8_t kelon168Data[21];  // Adjust the size based on your needs
+        memcpy(kelon168Data, &rawData, sizeof(rawData));
         irsend.sendKelon168(kelon168Data, sizeof(kelon168Data), kKelonBits);
     } else if (irType == TECO) {
         configureTecoAc(power, mode, temp);
@@ -175,8 +177,12 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
     } else if (irType == "KELON" || irType == "KELON168") {
         this->configureFanMode(kelonAc, power, fan, swing, direction);
         Serial.println("Sending IR command to set mode to FAN for KELON168.");
-        uint8_t kelon168Data[21];
-        kelonAc.getRaw(kelon168Data);
+        // Get the raw data from kelonAc
+        uint64_t rawData = kelonAc.getRaw();  // Get raw data as uint64_t
+        // Convert uint64_t to uint8_t array if needed
+        uint8_t kelon168Data[21];  // Adjust the size based on your needs
+        memcpy(kelon168Data, &rawData, sizeof(rawData));
+        // Send the IR command
         irsend.sendKelon168(kelon168Data, sizeof(kelon168Data), kKelonBits);
     } else {
         Serial.println("Unsupported AC protocol for fan mode.");
