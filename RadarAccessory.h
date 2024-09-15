@@ -1,6 +1,9 @@
 #ifndef RADAR_ACCESSORY_H
 #define RADAR_ACCESSORY_H
 
+#include "Config.h" 
+
+
 #ifdef USE_LD2450
 #include "LD2450.h" 
 #elif defined(USE_LD2412)
