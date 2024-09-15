@@ -15,5 +15,9 @@
 #define DHTPIN 16     // DHT sensor pin
 #define DHTTYPE DHT22   // DHT sensor type
 
+#define USE_LD2412 = 1
+const int rxPin = 43;
+const int txPin = 44;
+#define DEBUG = 0
 
 #endif
