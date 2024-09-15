@@ -14,6 +14,7 @@
 #define USE_BME680 0
 #define DHTPIN 16     // DHT sensor pin
 #define DHTTYPE DHT22   // DHT sensor type
+#define TEMP_OFFSET 0.0 
 
 #define USE_LD2412 = 1
 const int rxPin = 43;

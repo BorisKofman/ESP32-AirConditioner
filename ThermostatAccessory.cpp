@@ -51,13 +51,17 @@ void ThermostatAccessory::readTemperatureAndHumidity() {
         Serial.println(F("Failed to read from BME680 sensor!"));
         return;
     }
-    currentTemp->setVal(bme->temperature);
+    // Adjust the temperature with the offset
+    float adjustedTemp = bme->temperature - TEMP_OFFSET;
+    currentTemp->setVal(adjustedTemp);
     currentHumidity->setVal(bme->humidity);
 #else
     float temperature = dht->readTemperature();
     float humidity = dht->readHumidity();
     if (!isnan(temperature) && !isnan(humidity)) {
-        currentTemp->setVal(temperature);
+        // Adjust the temperature with the offset
+        float adjustedTemp = temperature - TEMP_OFFSET;
+        currentTemp->setVal(adjustedTemp);
         currentHumidity->setVal(humidity);
     } else {
         Serial.println("Failed to read from DHT sensor!");
