@@ -130,6 +130,7 @@ void loop() {
     } else {
       #ifdef DEBUG
         Serial.println("No presence detected.");
+        presence = false;
       #endif
     }
 #endif
