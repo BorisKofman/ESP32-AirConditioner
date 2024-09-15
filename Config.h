@@ -14,6 +14,7 @@
 #define USE_BME680 0
 #define DHTPIN 16     // DHT sensor pin
 #define DHTTYPE DHT22   // DHT sensor type
+#define TEMP_OFFSET 3.0 
 
 
 #endif
