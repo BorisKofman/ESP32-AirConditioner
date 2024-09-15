@@ -5,11 +5,10 @@ LD2412::LD2412(HardwareSerial &serial) : serial(serial) {}
 
 void LD2412::begin(HardwareSerial &serial) {
   this->serial = serial;
-  Serial.println("LD2412 sensor initialized...");
 }
 
 void LD2412::configureSensor() {
-  Serial.println("LD2412 sensor configuration complete.");
+  // Sensor configuration message
 }
 
 void LD2412::read() {
@@ -31,20 +30,11 @@ void LD2412::read() {
 }
 
 bool LD2412::presenceDetected() {
-  // Print the current target state in hexadecimal format
-  Serial.print("Current Target State: 0x");
-  Serial.println(currentTargetState, HEX);
-
-  // Check for valid states (0x01, 0x02, 0x03) and filter invalid states (e.g., 0xF6, 0xF1)
+  // Check for valid states (0x01, 0x02, 0x03) and filter invalid states
   if (currentTargetState == 0x00) {
     presence = false;  // No presence detected
   } else if (currentTargetState == 0x01 || currentTargetState == 0x02 || currentTargetState == 0x03) {
     presence = true;   // Presence detected
-  } else {
-    // Invalid state detected, ignore and keep the previous presence state
-    #ifdef DEBUG
-    Serial.println("Invalid target state detected, ignoring.");
-    #endif
   }
 
   return presence;  // Return the current state
@@ -67,22 +57,30 @@ uint16_t LD2412::movingTargetDistance() {
 }
 
 void LD2412::handleMessage(char *buffer) {
-  // Parse the message header to check if it's a valid frame
+  // Check if the frame is valid before processing
   if (isValidFrame(buffer)) {
-    char targetState = buffer[8];  // This holds the target state from the message
+    char targetState = buffer[8];  
+
+    // Handle the extracted target state
     handleTargetState(targetState, buffer);
-  } else {
-    #ifdef DEBUG
-    Serial.println("Invalid frame detected. Ignoring the message.");
-    #endif
   }
 }
 
 bool LD2412::isValidFrame(char *buffer) {
-  // Check the frame header (F4 F3 F2 F1) and end of frame (F8 F7 F6 F5)
-  return (buffer[0] == 0xF4 && buffer[1] == 0xF3 && buffer[2] == 0xF2 && buffer[3] == 0xF1 && 
-          buffer[bufferSize-4] == 0xF8 && buffer[bufferSize-3] == 0xF7 && 
-          buffer[bufferSize-2] == 0xF6 && buffer[bufferSize-1] == 0xF5);
+  // Check the frame header (F4 F3 F2 F1)
+  if (buffer[0] != 0xF4 || buffer[1] != 0xF3 || buffer[2] != 0xF2 || buffer[3] != 0xF1) {
+    return false;
+  }
+
+  // Check for either footer (0xF8 0xF7 0xF6 0xF5) or simple 0x55 footer
+  if (!((buffer[bufferSize-4] == 0xF8 && buffer[bufferSize-3] == 0xF7 && 
+         buffer[bufferSize-2] == 0xF6 && buffer[bufferSize-1] == 0xF5) || 
+        (buffer[bufferSize-1] == 0x55))) {
+    return false;
+  }
+
+  // Frame is considered valid
+  return true;
 }
 
 void LD2412::handleTargetState(char targetState, char *buffer) {
@@ -95,9 +93,6 @@ void LD2412::handleTargetState(char targetState, char *buffer) {
       movingDistance = 0;
       stationaryDistance = 0;
       presence = false;
-      #ifdef DEBUG
-      Serial.println("No valid target detected.");
-      #endif
       break;
 
     case 0x01:
@@ -105,11 +100,6 @@ void LD2412::handleTargetState(char targetState, char *buffer) {
       movingDistance = (buffer[9] & 0xFF) | ((buffer[10] & 0xFF) << 8);
       stationaryDistance = 0;
       presence = true;
-      #ifdef DEBUG
-      Serial.println("Moving target detected.");
-      Serial.print("Moving distance: ");
-      Serial.println(movingDistance);
-      #endif
       break;
 
     case 0x02:
@@ -117,11 +107,6 @@ void LD2412::handleTargetState(char targetState, char *buffer) {
       stationaryDistance = (buffer[12] & 0xFF) | ((buffer[13] & 0xFF) << 8);
       movingDistance = 0;
       presence = true;
-      #ifdef DEBUG
-      Serial.println("Stationary target detected.");
-      Serial.print("Stationary distance: ");
-      Serial.println(stationaryDistance);
-      #endif
       break;
 
     case 0x03:
@@ -129,13 +114,6 @@ void LD2412::handleTargetState(char targetState, char *buffer) {
       movingDistance = (buffer[9] & 0xFF) | ((buffer[10] & 0xFF) << 8);
       stationaryDistance = (buffer[12] & 0xFF) | ((buffer[13] & 0xFF) << 8);
       presence = true;
-      #ifdef DEBUG
-      Serial.println("Both moving and stationary targets detected.");
-      Serial.print("Moving distance: ");
-      Serial.println(movingDistance);
-      Serial.print("Stationary distance: ");
-      Serial.println(stationaryDistance);
-      #endif
       break;
 
     default:
@@ -143,9 +121,6 @@ void LD2412::handleTargetState(char targetState, char *buffer) {
       movingDistance = 0;
       stationaryDistance = 0;
       presence = false;
-      #ifdef DEBUG
-      Serial.println("Invalid or unknown target state detected. Message ignored.");
-      #endif
       break;
   }
 }
