@@ -91,6 +91,7 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     getIRType();
     irrecv.pause();
     delay(10);
+    bool lastPowerState = false;  // Track the last power state
 
     if (irType == "GOODWEATHER") {
         configureGoodweatherAc(power, mode, temp);
@@ -102,6 +103,7 @@ void IRController::sendCommand(bool power, int mode, int temp) {
         configureAmcorAc(power, mode, temp);
         irsend.sendAmcor(amcorAc.getRaw(), kAmcorBits);
     } else if (irType == "KELON" || irType == "KELON168") {
+        kelonAc.ensurePower(true);
         configureKelonAc(power, mode, temp);
         irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
     } else if (irType == TECO) {
@@ -172,6 +174,7 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
         Serial.println("Sending IR command to set mode to FAN for AIRTON.");
         irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
     } else if (irType == "KELON" || irType == "KELON168") {
+        kelonAc.ensurePower(true); // Pass 'true' to ensure it's turned on
         this->configureFanMode(kelonAc, power, fan, swing, direction);
         Serial.println("Sending IR command to set mode to FAN for KELON168.");
         irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
