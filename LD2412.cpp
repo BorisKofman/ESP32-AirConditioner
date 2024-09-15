@@ -1,4 +1,5 @@
 #include "LD2412.h"
+#include "config.h"
 #include <Arduino.h>
 
 LD2412::LD2412(HardwareSerial &serial) : serial(serial) {}
