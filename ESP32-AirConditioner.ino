@@ -19,13 +19,22 @@ DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
 #include "ThermostatAccessory.h"
 #include "RadarAccessory.h" 
 
-#ifdef USE_LD2412
+#if defined(USE_LD2412)
 #include "LD2412.h"  
 typedef LD2412 RadarType;
 const int baudRate = 115200;  // Default baud rate for LD2412
 HardwareSerial radarSerial(1); 
 RadarType radar(radarSerial);  // Pass radarSerial to the LD2412 constructor
 const int dataBits = SERIAL_8N1;
+
+#elif defined(USE_LD2410)
+#include <ld2410.h>  
+typedef ld2410 RadarType;
+const int baudRate = 256000;
+HardwareSerial radarSerial(1); 
+RadarType radar;  // Radar for LD2410 (no constructor call)
+const int dataBits = SERIAL_8N1;
+
 #endif
 
 IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true);
@@ -49,7 +58,7 @@ void setup() {
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
     
-#ifdef USE_LD2412
+#if defined(USE_LD2412) || defined(USE_LD2410)
     radarSerial.begin(baudRate, dataBits, rxPin, txPin);
     delay(500);
     radar.begin(radarSerial);
@@ -73,7 +82,7 @@ void setup() {
 #endif
     fanAccessory = new FanAccessory(&irController);
 
-#ifdef USE_LD2412
+#if defined(USE_LD2412) || defined(USE_LD2410)
     new SpanAccessory();                          
     new Service::AccessoryInformation();
     new Characteristic::Identify(); 
@@ -90,5 +99,7 @@ void setup() {
 
 void loop() {
     homeSpan.poll();
+#if defined(USE_LD2412) || defined(USE_LD2410)
     radar.read(); 
+#endif
 }

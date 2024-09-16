@@ -4,11 +4,11 @@
 #include "Config.h" 
 
 
-#ifdef USE_LD2450
-#include "LD2450.h" 
+#if defined(USE_LD2450)
+#include "LD2450.h"
 #elif defined(USE_LD2412)
 #include "LD2412.h"
-#else
+#elif defined(USE_LD2410)
 #include <ld2410.h>
 #endif
 
@@ -18,13 +18,11 @@ class RadarAccessory : public Service::OccupancySensor {
   private:
     SpanCharacteristic *occupancy;
     
-    #ifdef USE_LD2450
+    #if defined(USE_LD2450)
     LD2450 *radar;  
-    #endif
-    #ifdef USE_LD2412
+    #elif defined(USE_LD2412)
     LD2412 *radar;
-    #endif
-    #ifdef USE_LD2410
+    #elif defined(USE_LD2410)
     ld2410 *radar;
     #endif
 
@@ -36,13 +34,11 @@ class RadarAccessory : public Service::OccupancySensor {
 
   public:
     RadarAccessory(
-      #ifdef USE_LD2450
+      #if defined(USE_LD2450)
       LD2450 *radarSensor,
-      #endif 
-      #ifdef USE_LD2412
+      #elif defined(USE_LD2412)
       LD2412 *radarSensor, 
-      #endif
-      #ifdef USE_LD2410
+      #elif defined(USE_LD2410)
       ld2410 *radarSensor, 
       #endif
       int minRange, int maxRange) 
@@ -120,17 +116,13 @@ void loop() {
             #ifdef DEBUG
               Serial.println("Presence within range.");
             #endif
-        } else {
-            #ifdef DEBUG
-              Serial.println("Presence detected but out of range.");
-            #endif
         }
       #endif  // End of DISTANCE check
 
     } else {
+        presence = false;
       #ifdef DEBUG
         Serial.println("No presence detected.");
-        presence = false;
       #endif
     }
 #endif
