@@ -1,7 +1,9 @@
 #include "HomeSpan.h"
 #include "Config.h"
+#ifndef BEACON
 #include <esp_bt.h>
 #include <esp_bt_main.h>
+#endif
 #include <HardwareSerial.h>
 
 #if USE_BME680 == 1
@@ -42,12 +44,48 @@ IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true
 FanAccessory* fanAccessory = nullptr;
 ThermostatAccessory* thermostatAccessory = nullptr;
 
+#ifdef BEACON
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEBeacon.h>
+
+void initBLEBeacon() {
+    BLEDevice::init("");  // No device name
+
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    BLEAdvertisementData advertisementData;
+    BLEBeacon oBeacon = BLEBeacon();
+
+    oBeacon.setManufacturerId(0x004C);  // Apple's manufacturer ID
+    oBeacon.setProximityUUID(BLEUUID(BEACON_UUID));
+    oBeacon.setMajor(major);
+    oBeacon.setMinor(minor);
+    oBeacon.setSignalPower(txPower);
+
+    advertisementData.setFlags(ESP_BLE_ADV_FLAG_NON_LIMIT_DISC);
+
+    String strServiceData = "";
+    strServiceData += (char)26;        // Length of service data
+    strServiceData += (char)0xFF;      // Manufacturer specific data type
+    strServiceData += oBeacon.getData();
+
+    advertisementData.addData(strServiceData);
+
+    pAdvertising->setAdvertisementData(advertisementData);
+
+    // Create an empty BLEAdvertisementData object for scan response
+    BLEAdvertisementData scanResponseData;
+    // Optionally, you can set scan response data here if needed
+    pAdvertising->setScanResponseData(scanResponseData);
+
+    pAdvertising->start();
+
+    Serial.println("iBeacon started");
+}
+#endif
+
 void setup() {
     Serial.begin(BAUD_RATE);
-
-    // Disable Bluetooth to save power
-    btStop();
-    esp_bt_controller_disable();
 
     irController.beginreceive();
 
@@ -57,12 +95,25 @@ void setup() {
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
-    
+
 #if defined(USE_LD2412) || defined(USE_LD2410)
     radarSerial.begin(baudRate, dataBits, rxPin, txPin);
     delay(500);
     radar.begin(radarSerial);
-    Serial.println("LD2412 radar sensor initialized successfully.");
+    #if defined(USE_LD2412)
+        Serial.println("LD2412 radar sensor initialized successfully.");
+    #elif defined(USE_LD2410)
+        Serial.println("LD2410 radar sensor initialized successfully.");
+    #endif
+#endif
+
+#ifdef BEACON
+    // Initialize iBeacon
+    initBLEBeacon();
+#else
+    // Disable Bluetooth to save power
+    btStop();
+    esp_bt_controller_disable();
 #endif
 
     new SpanAccessory();
