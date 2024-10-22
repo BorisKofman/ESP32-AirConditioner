@@ -7,14 +7,12 @@ const uint16_t kMinUnknownSize = 12;
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
       irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), 
-      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin) { 
+      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin), airwellAc(sendPin) {
 }
 
 void IRController::beginsend() {
     irsend.enableIROut(38000, 50); 
     irsend.begin();
-    Serial.println("send pin");
-    Serial.print(sendPin);
 }
 
 void IRController::beginreceive() {
@@ -77,6 +75,10 @@ void IRController::handleIR() {
                 tecoAc.setRaw(results.value);
                 processACState(tecoAc);
             }
+            else if (irType == "AIRWELL" && type == "AIRWELL") {
+                airwellAc.setRaw(results.value);
+                processACState(airwellAc);
+            }
             else {
                 Serial.println("Skipping unsupported protocol.");
             }
@@ -109,6 +111,9 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     } else if (irType == TECO) {
         configureTecoAc(power, mode, temp);
         irsend.sendTeco(tecoAc.getRaw(), kTecoBits);
+    } else if (irType == "AIRWELL") {
+        configureAirWellAc(power, mode, temp);
+        irsend.sendAirWell(airwellAc.getRaw(), kAirWellBits);
     } else {
         Serial.println("AC control type is not configured.");
     }
@@ -178,6 +183,10 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
         this->configureFanMode(kelonAc, power, fan, swing, direction);
         Serial.println("Sending IR command to set mode to FAN for KELON168.");
         irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
+    } else if (irType == "AIRWELL") {
+        this->configureFanMode(airwellAc, power, fan, swing, direction);
+        Serial.println("Sending IR command to set mode to FAN for AIRWELL.");
+        irsend.sendAirWell(airwellAc.getRaw(), kAirWellBits);
     } else {
         Serial.println("Unsupported AC protocol for fan mode.");
     }
@@ -276,6 +285,12 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
     tecoAc.setTemp(temp);
 }
 
+void IRController::configureAirWellAc(bool power, int mode, int temp) {
+    airwellAc.setPower(power);
+    airwellAc.setMode(convertToAirWellMode(mode));
+    airwellAc.setTemp(temp);
+}
+
 int IRController::convertToGoodweatherMode(int homeKitMode) {
     switch (homeKitMode) {
         case 1:  // HomeKit Heat
@@ -338,6 +353,19 @@ int IRController::convertToTecoMode(int homeKitMode) {
             return kTecoAuto; 
         default:
             return kTecoAuto;
+    }
+}
+
+int IRController::convertToAirWellMode(int homeKitMode) {
+    switch (homeKitMode) {
+        case 1:  // HomeKit Heat
+            return kAirWellHeat;
+        case 2:  // HomeKit Cool
+            return kAirWellCool;
+        case 3:  // HomeKit Auto
+            return kAirWellAuto;
+        default:
+            return kAirWellAuto;
     }
 }
 

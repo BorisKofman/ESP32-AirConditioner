@@ -23,7 +23,10 @@ private:
 #endif
     IRController *irController;
     unsigned long lastReadTime = 0;
-    const unsigned long readInterval = 2000;
+    const unsigned long readInterval = 60000;
+    float lastSentTemp = 0.0;
+    float lastSentHumidity = 0.0;
+
     SpanCharacteristic *currentState;
     SpanCharacteristic *targetState;
     SpanCharacteristic *currentTemp;

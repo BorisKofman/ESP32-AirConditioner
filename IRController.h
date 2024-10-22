@@ -12,6 +12,7 @@
 #include <ir_Amcor.h>
 #include <ir_Kelon.h>
 #include <ir_Teco.h>
+#include <ir_Airwell.h>
 
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
@@ -33,6 +34,7 @@ private:
     IRKelonAc kelonAc;
     using IRKelonAc168 = IRKelonAc;
     IRTecoAc tecoAc;
+    IRAirwellAc airwellAc;
     
     uint16_t recvPin;
     uint16_t sendPin;
