@@ -286,7 +286,7 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
 }
 
 void IRController::configureAirWellAc(bool power, int mode, int temp) {
-    airwellAc.setPower(power);
+    airwellAc.setPowerToggle(power);
     airwellAc.setMode(convertToAirWellMode(mode));
     airwellAc.setTemp(temp);
 }
