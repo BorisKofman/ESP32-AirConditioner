@@ -4,10 +4,11 @@
 const uint8_t kTolerancePercentage = 25; 
 const uint16_t kMinUnknownSize = 12; 
 
+
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
-    : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
+    : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug),
       irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), 
-      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin), airwellAc(sendPin) {
+      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin), airwellAc(sendPin), previousPowerState(false) {
 }
 
 void IRController::beginsend() {
@@ -286,7 +287,10 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
 }
 
 void IRController::configureAirWellAc(bool power, int mode, int temp) {
-    airwellAc.setPowerToggle(power);
+    if (previousPowerState != power) {
+        airwellAc.setPowerToggle(power);
+        previousPowerState = power; 
+    }
     airwellAc.setMode(convertToAirWellMode(mode));
     airwellAc.setTemp(temp);
 }
@@ -375,30 +379,20 @@ void IRController::processACState(ACType& ac) {
     if constexpr (std::is_same<ACType, IRKelonAc>::value) {
         isPoweredOn = ac.getTogglePower();
     } else if constexpr (std::is_same<ACType, IRAirwellAc>::value) {
-        isPoweredOn = ac.getPowerToggle();
+        isPoweredOn = ac.getPowerToggle();  // Assuming this method exists
     } else {
         isPoweredOn = ac.getPower() != 0;
     }
 
-    if (!isPoweredOn) {  // If the AC is powered off, set the state to 3 (off)
-        currentState->setVal(0);
+    if (!isPoweredOn) {
+        currentState->setVal(0);  // AC is off
+    } 
+    int mode = ac.getMode();
+    switch (mode) {
+        case 0: currentState->setVal(3); break;  // Auto
+        case 4: currentState->setVal(1); break;  // Heat
+        case 1: currentState->setVal(2); break;  // Cool
+        default: currentState->setVal(3); break; // Default to auto
     }
-    else if (isPoweredOn) {  // If the AC is powered on, process the mode and temperature
-        int mode = ac.getMode();
-        switch (mode) {
-            case 0:  // Remote auto, HomeKit auto
-                currentState->setVal(3);
-                break;
-            case 4:  // Remote heating, HomeKit heating
-                currentState->setVal(1);
-                break;
-            case 1:  // Remote cooling, HomeKit cooling
-                currentState->setVal(2);
-                break;
-            default:
-                currentState->setVal(3);  // Default to auto
-                break;
-        }
-        coolingTemp->setVal(ac.getTemp());
-    }
+    coolingTemp->setVal(ac.getTemp());
 }

@@ -54,6 +54,8 @@ private:
 
     template<typename T>
     struct has_setSwingV<T, std::void_t<decltype(std::declval<T>().setSwingV(std::declval<bool>()))>> : std::true_type {};
+    bool previousPowerState;
+
 
 public:
     SpanCharacteristic *currentState;
