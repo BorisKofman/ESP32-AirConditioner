@@ -298,10 +298,10 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
 }
 
 void IRController::configureAirWellAc(bool power, int mode, int temp) {
-    Serial.Print("previous state:");
-    Serial.Println(previousPowerState);
-    Serial.Print("current state:");
-    serial.println(power);
+    Serial.print("previous state:");
+    Serial.println(previousPowerState);
+    Serial.print("current state:");
+    Serial.println(power);
     if (previousPowerState != power) {
         airwellAc.setPowerToggle(power);
         previousPowerState = power; 
