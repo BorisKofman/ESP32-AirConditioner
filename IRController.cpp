@@ -8,7 +8,7 @@ const uint16_t kMinUnknownSize = 12;
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug),
       irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), 
-      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin), airwellAc(sendPin), previousPowerState(false) {
+      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin), airwellAc(sendPin), coolixAc(sendPin), previousPowerState(false) {
 }
 
 void IRController::beginsend() {
@@ -295,6 +295,12 @@ void IRController::configureAirWellAc(bool power, int mode, int temp) {
     airwellAc.setTemp(temp);
 }
 
+void IRController::configureCoolixAc(bool power, int mode, int temp) {
+    coolixAc.setPower(power);
+    coolixAc.setMode(convertToCoolixMode(mode));
+    coolixAc.setTemp(temp);
+}
+
 int IRController::convertToGoodweatherMode(int homeKitMode) {
     switch (homeKitMode) {
         case 1:  // HomeKit Heat
@@ -373,19 +379,31 @@ int IRController::convertToAirWellMode(int homeKitMode) {
     }
 }
 
+int IRController::convertToCoolixMode(int homeKitMode) {
+    switch (homeKitMode) {
+        case 1:  // HomeKit Heat
+            return kCoolixHeat;
+        case 2:  // HomeKit Cool
+            return kCoolixCool;
+        case 3:  // HomeKit Auto
+            return kCoolixAuto;
+        default:
+            return kCoolixAuto;
+    }
+}
+
 template<typename ACType>
 void IRController::processACState(ACType& ac) {
     bool isPoweredOn;
     if constexpr (std::is_same<ACType, IRKelonAc>::value) {
         isPoweredOn = ac.getTogglePower();
     } else if constexpr (std::is_same<ACType, IRAirwellAc>::value) {
-        isPoweredOn = ac.getPowerToggle();  // Assuming this method exists
+        isPoweredOn = ac.getPowerToggle();
     } else {
         isPoweredOn = ac.getPower() != 0;
     }
-
     if (!isPoweredOn) {
-        currentState->setVal(0);  // AC is off
+        currentState->setVal(0);
     } 
     int mode = ac.getMode();
     switch (mode) {

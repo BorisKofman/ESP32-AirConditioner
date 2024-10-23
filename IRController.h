@@ -13,6 +13,8 @@
 #include <ir_Kelon.h>
 #include <ir_Teco.h>
 #include <ir_Airwell.h>
+#include <ir_Coolix.h> 
+
 
 #define GOODWEATHER "GOODWEATHER"
 #define AIRTON "AIRTON"
@@ -21,6 +23,7 @@
 #define KELON168 "KELON"
 #define TECO "TECO"
 #define AIRWELL "AIRWELL"
+#define COOLIX "COOLIX"
 
 class IRController {
 private:
@@ -36,7 +39,8 @@ private:
     using IRKelonAc168 = IRKelonAc;
     IRTecoAc tecoAc;
     IRAirwellAc airwellAc;
-    
+    IRCoolixAC coolixAc;
+
     uint16_t recvPin;
     uint16_t sendPin;
     uint16_t captureBufferSize;
@@ -132,12 +136,14 @@ void configureFanMode(ACType& ac, int power, int fan, bool swing, bool direction
     void configureKelonAc(bool power, int mode, int temp);
     void configureTecoAc(bool power, int mode, int temp);
     void configureAirWellAc(bool power, int mode, int temp);
+    void configureCoolixAc(bool power, int mode, int temp);
     int convertToGoodweatherMode(int homeKitMode);
     int convertToAirtonMode(int homeKitMode);
     int convertToAmcorMode(int homeKitMode);
     int convertToKelonMode(int homeKitMode);
     int convertToTecoMode(int homeKitMode);
     int convertToAirWellMode(int homeKitMode);
+    int convertToCoolixMode(int homeKitMode);
 };
 
 #endif
