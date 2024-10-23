@@ -16,7 +16,7 @@
 
 class RadarAccessory : public Service::OccupancySensor {
   private:
-    SpanCharacteristic *occupancy;
+    SpanCharacteristic *occupancy;  
     
     #if defined(USE_LD2450)
     LD2450 *radar;  
