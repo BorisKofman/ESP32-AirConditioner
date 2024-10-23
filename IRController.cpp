@@ -374,6 +374,8 @@ void IRController::processACState(ACType& ac) {
     bool isPoweredOn;
     if constexpr (std::is_same<ACType, IRKelonAc>::value) {
         isPoweredOn = ac.getTogglePower();
+    } else if constexpr (std::is_same<ACType, IRAirwellAc>::value) {
+        isPoweredOn = ac.getPowerToggle();
     } else {
         isPoweredOn = ac.getPower() != 0;
     }
