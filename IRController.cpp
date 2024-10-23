@@ -1,3 +1,4 @@
+#include "Print.h"
 #include "IRController.h"
 #include <cstring> 
 
@@ -80,6 +81,10 @@ void IRController::handleIR() {
                 airwellAc.setRaw(results.value);
                 processACState(airwellAc);
             }
+            else if (irType == "COOLIX" && type == "COOLIX") {
+                coolixAc.setRaw(results.value);
+                processACState(coolixAc);
+            }
             else {
                 Serial.println("Skipping unsupported protocol.");
             }
@@ -115,10 +120,12 @@ void IRController::sendCommand(bool power, int mode, int temp) {
     } else if (irType == "AIRWELL") {
         configureAirWellAc(power, mode, temp);
         irsend.sendAirwell(airwellAc.getRaw(), kAirwellBits);
+    } else if (irType == "COOLIX") {
+        configureCoolixAc(power, mode, temp);
+        irsend.sendCOOLIX(coolixAc.getRaw(), kCoolixBits);
     } else {
         Serial.println("AC control type is not configured.");
     }
-
     delay(10);
     irrecv.resume();
 }
@@ -185,6 +192,10 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
         Serial.println("Sending IR command to set mode to FAN for KELON168.");
         irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
     } else if (irType == "AIRWELL") {
+        this->configureFanMode(airwellAc, power, fan, swing, direction);
+        Serial.println("Sending IR command to set mode to FAN for AIRWELL.");
+        irsend.sendAirwell(airwellAc.getRaw(), kAirwellBits);
+    } else if (irType == "COOLIX") {
         this->configureFanMode(airwellAc, power, fan, swing, direction);
         Serial.println("Sending IR command to set mode to FAN for AIRWELL.");
         irsend.sendAirwell(airwellAc.getRaw(), kAirwellBits);
@@ -287,6 +298,10 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
 }
 
 void IRController::configureAirWellAc(bool power, int mode, int temp) {
+    Serial.Print("previous state:");
+    Serial.Println(previousPowerState);
+    Serial.Print("current state:");
+    serial.println(power);
     if (previousPowerState != power) {
         airwellAc.setPowerToggle(power);
         previousPowerState = power; 
