@@ -20,6 +20,7 @@
 #define KELON "KELON"
 #define KELON168 "KELON"
 #define TECO "TECO"
+#define AIRWELL "AIRWELL"
 
 class IRController {
 private:
