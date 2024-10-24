@@ -302,10 +302,14 @@ void IRController::configureAirWellAc(bool power, int mode, int temp) {
     Serial.println(previousPowerState);
     Serial.print("current state:");
     Serial.println(power);
+
     if (previousPowerState != power) {
         airwellAc.setPowerToggle(power);
-        previousPowerState = power; 
+        previousPowerState = power;  // Update the previous state only if the power state changes
+    } else {
+        Serial.println("Power state unchanged, skipping power toggle.");
     }
+
     airwellAc.setMode(convertToAirWellMode(mode));
     airwellAc.setTemp(temp);
 }
