@@ -196,9 +196,9 @@ void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
         Serial.println("Sending IR command to set mode to FAN for AIRWELL.");
         irsend.sendAirwell(airwellAc.getRaw(), kAirwellBits);
     } else if (irType == "COOLIX") {
-        this->configureFanMode(airwellAc, power, fan, swing, direction);
-        Serial.println("Sending IR command to set mode to FAN for AIRWELL.");
-        irsend.sendAirwell(airwellAc.getRaw(), kAirwellBits);
+        this->configureFanMode(coolixAc, power, fan, swing, direction);
+        Serial.println("Sending IR command to set mode to FAN COOLIX AIRWELL.");
+        irsend.sendCOOLIX(coolixAc.getRaw(), kCoolixBits);
     } else {
         Serial.println("Unsupported AC protocol for fan mode.");
     }
