@@ -274,6 +274,8 @@ void IRController::configureGoodweatherAc(bool power, int mode, int temp) {
 void IRController::configureAirtonAc(bool power, int mode, int temp) {
     airtonAc.setPower(power);
     airtonAc.setMode(convertToAirtonMode(mode));
+    Serial.println("current homekit mode: ");
+    Serial.println(mode);
     airtonAc.setTemp(temp);
     airtonAc.setLight("on");
 
@@ -344,7 +346,7 @@ int IRController::convertToAirtonMode(int homeKitMode) {
         case 3:  // HomeKit auto
             return kAirtonAuto;
         default:
-            return kAirtonAuto;
+            return kAirtonCool;
     }
 }
 
