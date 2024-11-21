@@ -298,17 +298,18 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
 }
 
 void IRController::configureAirWellAc(bool power, int mode, int temp) {
-    Serial.print("previous state:");
-    Serial.println(previousPowerState);
-    Serial.print("current state:");
-    Serial.println(power);
+    Serial.print("Previous power state: ");
+    Serial.println(previousPowerState ? "On" : "Off");
+    Serial.print("Current power state: ");
+    Serial.println(power ? "On" : "Off");
 
     if (previousPowerState != power) {
-        Serial.println("Power state changed, sending power toggle.");
-        airwellAc.setPowerToggle(power);  // Toggle power if needed
-        previousPowerState = power;  // Update the previous power state
+        Serial.println("Power state changed, updating power state.");
+        airwellAc.setPower(power ? true : false);
+        previousPowerState = power;  // Update previous state
     } else {
-        Serial.println("Power state unchanged, skipping power toggle.");
+        Serial.println("Power state unchanged, skipping power update.");
+        airwellAc.setPowerToggle("off")
     }
 
     airwellAc.setMode(convertToAirWellMode(mode));
