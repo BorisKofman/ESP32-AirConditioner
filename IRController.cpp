@@ -181,7 +181,7 @@ void IRController::sendThermostatCommand(bool power, int mode, int temp) {
             newState.mode = stdAc::opmode_t::kCool;
             break;
         case 3:  // Auto
-            newState.mode = stdAc::opmode_t::kAuto;
+            newState.mode = stdAc::opmode_t::kFan;
             break;
         default:  // Off
             newState.mode = stdAc::opmode_t::kOff;

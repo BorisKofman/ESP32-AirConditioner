@@ -100,24 +100,8 @@ boolean ThermostatAccessory::update() {
     bool power = targetState->getNewVal() != 0;
     int mode = targetState->getNewVal(); 
     int temp = targetTemp->getNewVal(); 
-    int direction = fanAccessory->getrotationDirection();  
-    Serial.print("Thermost switch direction: ");
-    Serial.println(direction);
-    fanAccessory->setrotationDirectionState(1);
-    fanAccessory->CurrentFanState(0);
 
     // Use sendThermostatCommand instead of sendCommand
     irController->sendThermostatCommand(power, mode, temp);
     return true;
-}
-
-int ThermostatAccessory::getCurrentState() {
-    int state = currentState->getVal();
-    return state;
-}
-
-void ThermostatAccessory::setCurrentState(int state) {
-    if (targetState) {
-        targetState->setVal(state); 
-    }
 }

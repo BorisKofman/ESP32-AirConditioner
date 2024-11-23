@@ -45,10 +45,6 @@ public:
     boolean update();
     void loop(); 
     void readTemperatureAndHumidity();
-    void setCurrentState(int state);
-    
-    int getCurrentState();
-
 };
 
 #endif 

@@ -3,27 +3,18 @@
 
 #include "Config.h" 
 
-
-#if defined(USE_LD2450)
-#include "LD2450.h"
-#elif defined(USE_LD2412)
+#if defined(USE_LD2412)
 #include "LD2412.h"
-#elif defined(USE_LD2410)
-#include <ld2410.h>
 #endif
 
 #include <HardwareSerial.h>
 
 class RadarAccessory : public Service::OccupancySensor {
   private:
-    SpanCharacteristic *occupancy;  
+    SpanCharacteristic *occupancy;
     
-    #if defined(USE_LD2450)
-    LD2450 *radar;  
-    #elif defined(USE_LD2412)
+    #if defined(USE_LD2412)
     LD2412 *radar;
-    #elif defined(USE_LD2410)
-    ld2410 *radar;
     #endif
 
     int minRange;
@@ -34,23 +25,13 @@ class RadarAccessory : public Service::OccupancySensor {
 
   public:
     RadarAccessory(
-      #if defined(USE_LD2450)
-      LD2450 *radarSensor,
-      #elif defined(USE_LD2412)
+      #if defined(USE_LD2412)
       LD2412 *radarSensor, 
-      #elif defined(USE_LD2410)
-      ld2410 *radarSensor, 
       #endif
       int minRange, int maxRange) 
       : Service::OccupancySensor(), 
         minRange(minRange), maxRange(maxRange) {
-      #ifdef USE_LD2450
-      radar = radarSensor;
-      #endif
       #ifdef USE_LD2412
-      radar = radarSensor;
-      #endif
-      #ifdef USE_LD2410
       radar = radarSensor;
       #endif
       occupancy = new Characteristic::OccupancyDetected(0, true);

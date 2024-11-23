@@ -16,7 +16,6 @@
 #define DHTTYPE DHT22   // DHT sensor type
 #define TEMP_OFFSET 3.0 
 
-// #define USE_LD2410 
 // #define USE_LD2412 
 const int rxPin = 43;
 const int txPin = 44;
