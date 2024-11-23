@@ -49,7 +49,7 @@ void setup() {
     btStop();
     esp_bt_controller_disable();
 
-    irController.beginreceive();
+    irController.beginReceive();
 
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.setStatusAutoOff(5);
@@ -57,7 +57,7 @@ void setup() {
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
-    
+     
 #if defined(USE_LD2412) || defined(USE_LD2410)
     radarSerial.begin(baudRate, dataBits, rxPin, txPin);
     delay(500);

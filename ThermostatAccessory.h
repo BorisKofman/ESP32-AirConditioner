@@ -46,6 +46,7 @@ public:
     void loop(); 
     void readTemperatureAndHumidity();
     void setCurrentState(int state);
+    
     int getCurrentState();
 
 };

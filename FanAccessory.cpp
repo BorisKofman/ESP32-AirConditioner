@@ -35,7 +35,7 @@ boolean FanAccessory::update() {
       active->setVal(0); 
     }
 
-    irController->setFanMode(power, fanSpeed, swing, direction);
+    irController->sendFanCommand(fanSpeed, swing);
     return true; 
 }
 

@@ -21,7 +21,7 @@ ThermostatAccessory::ThermostatAccessory(DHT *dhtSensor, IRController *irCtrl)
     dht->begin();
 
 #endif
-    irController->beginsend();
+    irController->beginSend();
     
     currentState = new Characteristic::CurrentHeatingCoolingState(0, true);
     targetState = new Characteristic::TargetHeatingCoolingState(0, true);
@@ -33,7 +33,7 @@ ThermostatAccessory::ThermostatAccessory(DHT *dhtSensor, IRController *irCtrl)
 
     targetTemp->setRange(16, 31, 1);  // Set range for TargetTemperature
 
-    irController->setCharacteristics(targetState, targetTemp);
+    irController->setThermostatCharacteristics(targetState, targetTemp);
 }
 
 void ThermostatAccessory::loop() {
@@ -106,7 +106,8 @@ boolean ThermostatAccessory::update() {
     fanAccessory->setrotationDirectionState(1);
     fanAccessory->CurrentFanState(0);
 
-    irController->sendCommand(power, mode, temp);
+    // Use sendThermostatCommand instead of sendCommand
+    irController->sendThermostatCommand(power, mode, temp);
     return true;
 }
 
