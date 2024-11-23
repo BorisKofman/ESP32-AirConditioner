@@ -39,7 +39,6 @@ ThermostatAccessory::ThermostatAccessory(DHT *dhtSensor, IRController *irCtrl)
 void ThermostatAccessory::loop() {
     unsigned long currentTime = millis();
 
-    // Initialize lastReadTime in such a way that it forces the first read immediately
     if (lastReadTime == 0) {
         lastReadTime = currentTime - readInterval;
     }
@@ -53,7 +52,6 @@ void ThermostatAccessory::loop() {
 }
 
 void ThermostatAccessory::readTemperatureAndHumidity() {
-    // Declare variables for temperature and humidity
     float adjustedTemp = 0.0;
     float currentHumidityVal = 0.0;
 
@@ -62,27 +60,24 @@ void ThermostatAccessory::readTemperatureAndHumidity() {
         Serial.println(F("Failed to read from BME680 sensor!"));
         return;
     }
-    // Adjust the temperature with the offset and round to the nearest whole number
     adjustedTemp = round(bme->temperature - TEMP_OFFSET);
-    currentHumidityVal = round(bme->humidity);  // Round humidity to the nearest whole number
+    currentHumidityVal = round(bme->humidity);
 
 #else
     float temperature = dht->readTemperature();
     float humidity = dht->readHumidity();
     if (!isnan(temperature) && !isnan(humidity)) {
-        // Adjust the temperature with the offset and round to the nearest whole number
         adjustedTemp = round(temperature - TEMP_OFFSET);
-        currentHumidityVal = round(humidity);  // Round humidity to the nearest whole number
+        currentHumidityVal = round(humidity);
     } else {
         Serial.println("Failed to read from DHT sensor!");
         return;
     }
 #endif
 
-    // Only update temperature if it has changed
     if (adjustedTemp != lastSentTemp) {
         currentTemp->setVal(adjustedTemp);
-        lastSentTemp = adjustedTemp;  // Store the last sent temperature
+        lastSentTemp = adjustedTemp;
         Serial.print("Updated Temperature: ");
         Serial.println(adjustedTemp);
     }
@@ -90,7 +85,7 @@ void ThermostatAccessory::readTemperatureAndHumidity() {
     // Only update humidity if it has changed
     if (currentHumidityVal != lastSentHumidity) {
         currentHumidity->setVal(currentHumidityVal);
-        lastSentHumidity = currentHumidityVal;  // Store the last sent humidity
+        lastSentHumidity = currentHumidityVal;  
         Serial.print("Updated Humidity: ");
         Serial.println(currentHumidityVal);
     }
@@ -101,7 +96,6 @@ boolean ThermostatAccessory::update() {
     int mode = targetState->getNewVal(); 
     int temp = targetTemp->getNewVal(); 
 
-    // Use sendThermostatCommand instead of sendCommand
     irController->sendThermostatCommand(power, mode, temp);
     return true;
 }

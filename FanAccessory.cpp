@@ -19,7 +19,7 @@ boolean FanAccessory::update() {
     int fanSpeed = fanRotationSpeed->getNewVal();  
     bool swing = swingMode->getNewVal();
     // int direction = rotationDirection->getNewVal(); 
-
+    active->setVal(0); 
     irController->sendFanCommand(fanSpeed, swing);
     return true; 
 }
