@@ -300,11 +300,6 @@ void IRController::configureTecoAc(bool power, int mode, int temp) {
 }
 
 void IRController::configureAirWellAc(bool power, int mode, int temp) {
-    Serial.print("Previous power state: ");
-    Serial.println(previousPowerState ? "On" : "Off");
-    Serial.print("Current power state: ");
-    Serial.println(power ? "On" : "Off");
-
     if (previousPowerState != power) {
         Serial.println("Power state changed, updating power state.");
         airwellAc.setPowerToggle(true);
