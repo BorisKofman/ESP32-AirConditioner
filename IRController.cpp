@@ -171,7 +171,8 @@ void IRController::sendThermostatCommand(bool power, int mode, int temp) {
     stdAc::state_t newState = lastState;
     newState.power = power;
     newState.degrees = temp;
-  
+    newState.light = true;
+    
     // Map HomeKit modes to protocol modes
     switch (mode) {
         case 1:  // Heat
@@ -197,10 +198,12 @@ void IRController::sendFanCommand(int fanSpeed, bool swing) {
     stdAc::state_t newState = lastState;
 
     // Map fan speed percentage (0-100) to protocol-specific fan speed levels
-    int mappedFanSpeed = (fanSpeed == 0) ? 0   // Off
-                        : (fanSpeed <= 33) ? 1 // Low
-                        : (fanSpeed <= 66) ? 3 // Medium
-                                           : 5; // High
+    int mappedFanSpeed = (fanSpeed == 0) ? 1   // kMin
+                        : (fanSpeed <= 25) ? 2 // kLow
+                        : (fanSpeed <= 50) ? 3 // kMedium
+                        : (fanSpeed <= 75) ? 4 // kHigh
+                        : (fanSpeed == 100) ? 0 // kAuto
+                        : 0;                   // Default to kAuto if no condition matches
     newState.fanspeed = static_cast<stdAc::fanspeed_t>(mappedFanSpeed);
 
     // Default to auto swing
