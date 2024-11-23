@@ -49,8 +49,13 @@ void IRController::handleIR() {
 
 
 // Update HomeKit state from lastState
-// Update HomeKit state from lastState
 void IRController::updateHomeKitFromIR() {
+    if (!lastState.power) {
+        targetState->setVal(0);  // Off
+        Serial.println("AC is off. Updated HomeKit TargetState to Off.");
+        return;
+    }
+
     if (targetTemp->getVal() != lastState.degrees) {
         targetTemp->setVal(lastState.degrees);
     }
