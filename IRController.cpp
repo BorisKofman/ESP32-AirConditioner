@@ -128,7 +128,7 @@ void IRController::updateHomeKitFromIR() {
                 targetState->setVal(2);  // Cool
                 logCharacteristicUpdate("TargetState", "Cool");
                 break;
-            case stdAc::opmode_t::kFan:
+            case AUTO_MODE:
                 targetState->setVal(3);  // Fan
                 logCharacteristicUpdate("TargetState", "Fan");
                 break;
@@ -195,7 +195,7 @@ void IRController::sendThermostatCommand(bool power, int mode, int temp) {
             newState.mode = stdAc::opmode_t::kCool;
             break;
         case 3:  // Auto
-            newState.mode = stdAc::opmode_t::kFan;
+            newState.mode = AUTO_MODE;
             break;
         default:  // Off
             newState.mode = stdAc::opmode_t::kOff;

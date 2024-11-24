@@ -16,6 +16,9 @@
 #define DHTTYPE DHT22   // DHT sensor type
 #define TEMP_OFFSET 3.5 
 
+//This is auto mode in homekit 
+#define AUTO_MODE stdAc::opmode_t::kFan  // Change kFan to kAuto as needed.
+
 // #define USE_LD2412 
 const int rxPin = 43;
 const int txPin = 44;
