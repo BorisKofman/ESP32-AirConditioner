@@ -28,7 +28,8 @@ public:
     void sendFanCommand(int fanSpeed, bool swing);
     void setThermostatCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *targetTemp);
     void setFanCharacteristics(SpanCharacteristic *fanRotationSpeed, SpanCharacteristic *swingMode);
-    
+    bool isProtocolSaved(const char* protocol); // Declare the helper function
+
 private:
     IRsend irsend;
     IRrecv irrecv;
@@ -42,10 +43,13 @@ private:
     SpanCharacteristic *targetState;
     std::vector<String> identifiedProtocols;
 
+    bool initPreferences(bool readOnly);
     void updateHomeKitFromIR();
     void saveLastState();
-    void loadLastState();
+    bool loadLastState(); 
     void sendCommand(stdAc::state_t newState);
+    void logCharacteristicUpdate(const char* characteristic, const char* value, const char* level = "Info");
+    void logCharacteristicUpdate(const char* characteristic, int value, const char* level = "Info");
 };
 
 #endif  // IRCONTROLLER_H_

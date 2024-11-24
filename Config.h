@@ -11,10 +11,10 @@
 #define CAPTURE_BUFFER_SIZE 2048
 #define TIMEOUT 15
 
-// #define USE_BME680
+// #define USE_BME680 1
 #define DHTPIN 16     // DHT sensor pin
 #define DHTTYPE DHT22   // DHT sensor type
-#define TEMP_OFFSET 3.0 
+#define TEMP_OFFSET 3.5 
 
 // #define USE_LD2412 
 const int rxPin = 43;

@@ -21,7 +21,7 @@ class RadarAccessory : public Service::OccupancySensor {
     int maxRange;
     bool presence = false;
     unsigned long previousMillis = 0; 
-    const long interval = 1000; 
+    const long interval = 500; 
 
   public:
     RadarAccessory(
@@ -64,7 +64,7 @@ void loop() {
         }
     }
 
-#elif defined(USE_LD2410) || defined(USE_LD2412)
+#elif defined(USE_LD2412)
     if (radar->presenceDetected()) {
 
       #ifdef DEBUG
