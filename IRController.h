@@ -27,7 +27,6 @@ public:
     void sendFanCommand(int fanSpeed, bool swing);
     void setThermostatCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *targetTemp);
     void setFanCharacteristics(SpanCharacteristic *fanSpeed, SpanCharacteristic *swingMode);
-    void setLight(bool state);
     
 private:
     IRsend irsend;

@@ -1,5 +1,8 @@
 #include "IRController.h"
 
+const uint8_t kTolerancePercentage = 25; 
+const uint16_t kMinUnknownSize = 12; 
+
 // Constructor
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
     : irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), acController(sendPin, false, debug) {
@@ -15,7 +18,13 @@ void IRController::beginSend() {
 
 // Initialize IR receiving
 void IRController::beginReceive() {
+#ifdef DEBUG
     irrecv.enableIRIn();
+#else
+    irrecv.setTolerance(kTolerancePercentage);
+    irrecv.setUnknownThreshold(kMinUnknownSize);
+    irrecv.enableIRIn();
+#endif
 }
 
 // Handle incoming IR signals
@@ -251,10 +260,4 @@ void IRController::sendCommand(stdAc::state_t newState) {
 void IRController::setThermostatCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *targetTemp) {
     this->targetState = targetState;
     this->targetTemp = targetTemp;
-}
-
-void IRController::setLight(bool state) {
-    stdAc::state_t newState = lastState;
-    newState.light = state ? 1 : 0;  // Assuming the protocol has a light property
-    sendCommand(newState);
 }
