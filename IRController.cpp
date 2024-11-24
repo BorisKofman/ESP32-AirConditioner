@@ -84,6 +84,10 @@ void IRController::updateHomeKitFromIR() {
             break;
     }
 
+    if (fanRotationSpeed == nullptr) {
+        Serial.println("[ERROR] fanRotationSpeed characteristic is not initialized.");
+        return;
+    }
     int fanSpeedValue = 0;
     switch (lastState.fanspeed) {
         case stdAc::fanspeed_t::kLow:
@@ -99,9 +103,10 @@ void IRController::updateHomeKitFromIR() {
             fanSpeedValue = 0;
             break;
     }
+    Serial.printf("[INFO] Updated fanRotationSpeed to %d.\n", fanSpeedValue);
     fanRotationSpeed->setVal(fanSpeedValue);
 
-    swingMode->setVal((lastState.swingv == stdAc::swingv_t::kOff) ? 0 : 1);
+    // swingMode->setVal((lastState.swingv == stdAc::swingv_t::kOff) ? 0 : 1);
 }
 
 // Save protocol to preferences
@@ -265,5 +270,16 @@ void IRController::setThermostatCharacteristics(SpanCharacteristic *targetState,
         Serial.println("[INFO] Thermostat characteristics initialized.");
     } else {
         Serial.println("[ERROR] Failed to initialize thermostat characteristics.");
+    }
+}
+
+void IRController::setFanCharacteristics(SpanCharacteristic *fanRotationSpeed, SpanCharacteristic *swingMode) {
+    this->fanRotationSpeed = fanRotationSpeed;
+    this->swingMode = swingMode;
+
+    if (this->fanRotationSpeed && this->swingMode) {
+        Serial.println("[INFO] Fan characteristics initialized successfully.");
+    } else {
+        Serial.println("[ERROR] Failed to initialize fan characteristics.");
     }
 }

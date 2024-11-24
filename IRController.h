@@ -3,8 +3,8 @@
 
 #include "HomeSpan.h"
 #include <Preferences.h>
-#include <IRremoteESP8266.h>
 #include "Config.h"
+#include <IRremoteESP8266.h>
 #include <vector>
 #include <IRac.h>
 #include <IRrecv.h>
@@ -27,7 +27,7 @@ public:
     void sendThermostatCommand(bool power, int mode, int temp);
     void sendFanCommand(int fanSpeed, bool swing);
     void setThermostatCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *targetTemp);
-    void setFanCharacteristics(SpanCharacteristic *fanSpeed, SpanCharacteristic *swingMode);
+    void setFanCharacteristics(SpanCharacteristic *fanRotationSpeed, SpanCharacteristic *swingMode);
     
 private:
     IRsend irsend;

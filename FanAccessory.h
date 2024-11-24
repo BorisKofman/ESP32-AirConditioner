@@ -5,14 +5,15 @@
 #include "IRController.h"
 
 class FanAccessory : public Service::Fan {
+  
 private:
+    IRController *irController;
+
     SpanCharacteristic *active;
     SpanCharacteristic *rotationDirection;
     SpanCharacteristic *fanRotationSpeed;
     SpanCharacteristic *swingMode;
     SpanCharacteristic *currentFanState;
-
-    IRController *irController;
 
 public:
     FanAccessory(IRController *irCtrl);
