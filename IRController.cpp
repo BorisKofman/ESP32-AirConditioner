@@ -99,7 +99,7 @@ void IRController::updateHomeKitFromIR() {
             fanSpeedValue = 0;
             break;
     }
-    fanSpeed->setVal(fanSpeedValue);
+    fanRotationSpeed->setVal(fanSpeedValue);
 
     swingMode->setVal((lastState.swingv == stdAc::swingv_t::kOff) ? 0 : 1);
 }
@@ -260,4 +260,10 @@ void IRController::sendCommand(stdAc::state_t newState) {
 void IRController::setThermostatCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *targetTemp) {
     this->targetState = targetState;
     this->targetTemp = targetTemp;
+
+    if (this->targetState && this->targetTemp) {
+        Serial.println("[INFO] Thermostat characteristics initialized.");
+    } else {
+        Serial.println("[ERROR] Failed to initialize thermostat characteristics.");
+    }
 }

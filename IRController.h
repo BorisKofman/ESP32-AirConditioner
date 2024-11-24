@@ -1,14 +1,15 @@
 #ifndef IRCONTROLLER_H_
 #define IRCONTROLLER_H_
 
+#include "HomeSpan.h"
+#include <Preferences.h>
+#include <IRremoteESP8266.h>
+#include "Config.h"
 #include <vector>
 #include <IRac.h>
 #include <IRrecv.h>
 #include <IRsend.h>
 #include <IRutils.h>
-#include "HomeSpan.h"
-#include <Preferences.h>
-#include <IRremoteESP8266.h>
 
 class IRController {
 public:
@@ -35,7 +36,7 @@ private:
     Preferences preferences;
     stdAc::state_t lastState;
     bool lastStateValid = false;
-    SpanCharacteristic *fanSpeed;
+    SpanCharacteristic *fanRotationSpeed;
     SpanCharacteristic *swingMode;
     SpanCharacteristic *targetTemp;
     SpanCharacteristic *targetState;
