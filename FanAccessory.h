@@ -4,6 +4,8 @@
 #include "HomeSpan.h"
 #include "IRController.h"
 
+#include <Ticker.h> // Include the Ticker library
+
 class FanAccessory : public Service::Fan {
   
 private:
@@ -14,6 +16,9 @@ private:
     SpanCharacteristic *fanRotationSpeed;
     SpanCharacteristic *swingMode;
     SpanCharacteristic *currentFanState;
+
+    void setInactive();
+    Ticker inactiveTimer;
 
 public:
     FanAccessory(IRController *irCtrl);

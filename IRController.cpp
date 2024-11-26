@@ -143,13 +143,13 @@ void IRController::updateHomeKitFromIR() {
         int fanSpeedValue = 0;
         switch (lastState.fanspeed) {
             case stdAc::fanspeed_t::kLow:
-                fanSpeedValue = 25;
+                fanSpeedValue = 33;
                 break;
             case stdAc::fanspeed_t::kMedium:
-                fanSpeedValue = 50;
+                fanSpeedValue = 66;
                 break;
             case stdAc::fanspeed_t::kHigh:
-                fanSpeedValue = 100;
+                fanSpeedValue = 99;
                 break;
             default:
                 fanSpeedValue = 0;
@@ -209,12 +209,11 @@ void IRController::sendThermostatCommand(bool power, int mode, int temp) {
 void IRController::sendFanCommand(int fanSpeed, bool swing) {
     stdAc::state_t newState = lastState;
 
-    int mappedFanSpeed = (fanSpeed == 0) ? 1
-                        : (fanSpeed <= 25) ? 2
-                        : (fanSpeed <= 50) ? 3
-                        : (fanSpeed <= 75) ? 4
-                        : (fanSpeed == 100) ? 0
-                        : 0;
+    int mappedFanSpeed = (fanSpeed == 0) ? 1  // First step
+                        : (fanSpeed <= 33) ? 2  // Second step
+                        : (fanSpeed <= 66) ? 3  // Third step
+                        : (fanSpeed <= 99) ? 4  // Fourth step
+                        : 5;                    // Maximum step (100)
     newState.fanspeed = static_cast<stdAc::fanspeed_t>(mappedFanSpeed);
 
     stdAc::swingv_t swingv = swing ? stdAc::swingv_t::kOff : stdAc::swingv_t::kAuto;

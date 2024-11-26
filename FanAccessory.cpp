@@ -7,12 +7,13 @@ FanAccessory::FanAccessory(IRController *irCtrl)
     : irController(irCtrl) {
     
     active = new Characteristic::Active(0, true);
+    
     // rotationDirection = new Characteristic::RotationDirection(0, true); 
-    fanRotationSpeed = new Characteristic::RotationSpeed(25, true);
+    fanRotationSpeed = new Characteristic::RotationSpeed(33, true);
     swingMode = new Characteristic::SwingMode(0, true);
     currentFanState = new Characteristic::CurrentFanState(0, true);
 
-    fanRotationSpeed->setRange(0, 100, 25);
+    fanRotationSpeed->setRange(0, 100, 33); // HomeKit requires 0-100%
 }
 
 boolean FanAccessory::update() {
@@ -20,10 +21,16 @@ boolean FanAccessory::update() {
     bool swing = swingMode->getNewVal();
     // int direction = rotationDirection->getNewVal(); 
     irController->sendFanCommand(fanSpeed, swing);
-    delay(10);
-    active->setVal(0); 
+    if (active->getNewVal() == 1) {
+            inactiveTimer.once(0.5, [this]() {
+                setInactive();
+            });
+        }
     return true; 
 }
 
-
-
+void FanAccessory::setInactive() {
+    if (active->getVal() != 0) {
+        active->setVal(0);
+    }
+}
