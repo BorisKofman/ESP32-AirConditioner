@@ -15,7 +15,6 @@ DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
 
 #include "IRController.h"
 #include "FanAccessory.h"
-#include "VirtualSwitchAccessory.h"
 #include "ThermostatAccessory.h"
 #include "RadarAccessory.h" 
 
@@ -26,15 +25,6 @@ const int baudRate = 115200;  // Default baud rate for LD2412
 HardwareSerial radarSerial(1); 
 RadarType radar(radarSerial);  // Pass radarSerial to the LD2412 constructor
 const int dataBits = SERIAL_8N1;
-
-#elif defined(USE_LD2410)
-#include <ld2410.h>  
-typedef ld2410 RadarType;
-const int baudRate = 256000;
-HardwareSerial radarSerial(1); 
-RadarType radar;  // Radar for LD2410 (no constructor call)
-const int dataBits = SERIAL_8N1;
-
 #endif
 
 IRController irController(SEND_PIN, RECV_PIN, CAPTURE_BUFFER_SIZE, TIMEOUT, true);
@@ -49,7 +39,7 @@ void setup() {
     btStop();
     esp_bt_controller_disable();
 
-    irController.beginreceive();
+    irController.beginReceive();
 
     homeSpan.setStatusPixel(STATUS_LED_PIN, 240, 100, 5);
     homeSpan.setStatusAutoOff(5);
@@ -57,8 +47,8 @@ void setup() {
     homeSpan.enableWebLog(10, "pool.ntp.org", "UTC+3");
     homeSpan.setApTimeout(300);
     homeSpan.enableAutoStartAP();
-    
-#if defined(USE_LD2412) || defined(USE_LD2410)
+     
+#if defined(USE_LD2412)
     radarSerial.begin(baudRate, dataBits, rxPin, txPin);
     delay(500);
     radar.begin(radarSerial);
@@ -74,7 +64,7 @@ void setup() {
     new Characteristic::Identify(); 
     new Characteristic::Name("Air Conditioner");
     new Characteristic::Model("ESP32 AC Model");
-    new Characteristic::FirmwareRevision("1.2.1");
+    new Characteristic::FirmwareRevision("2.0.1");
 #if USE_BME680 == 1
     thermostatAccessory = new ThermostatAccessory(&bme, &irController, 10, 12); 
 #else
@@ -82,24 +72,18 @@ void setup() {
 #endif
     fanAccessory = new FanAccessory(&irController);
 
-#if defined(USE_LD2412) || defined(USE_LD2410)
+#if defined(USE_LD2412)
     new SpanAccessory();                          
     new Service::AccessoryInformation();
     new Characteristic::Identify(); 
     new Characteristic::Name("Radar Sensor 1");
     new RadarAccessory(&radar, 0, 1100);  
 #endif
-
-    // new SpanAccessory();
-    // new Service::AccessoryInformation();
-    // new Characteristic::Identify();
-    // new Characteristic::Name("Air Conditioner Light");
-    // new VirtualSwitchAccessory(&irController);  
 }
 
 void loop() {
     homeSpan.poll();
-#if defined(USE_LD2412) || defined(USE_LD2410)
+#if defined(USE_LD2412)
     radar.read(); 
 #endif
 }

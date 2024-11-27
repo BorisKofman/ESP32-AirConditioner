@@ -11,15 +11,17 @@
 #define CAPTURE_BUFFER_SIZE 2048
 #define TIMEOUT 15
 
-// #define USE_BME680
+// #define USE_BME680 1
 #define DHTPIN 16     // DHT sensor pin
 #define DHTTYPE DHT22   // DHT sensor type
-#define TEMP_OFFSET 3.0 
+#define TEMP_OFFSET 3
 
-// #define USE_LD2410 
+//This is auto mode in homekit 
+#define AUTO_MODE stdAc::opmode_t::kFan  // Change kFan to kAuto as needed.
+
 // #define USE_LD2412 
-const int rxPin = 43;
-const int txPin = 44;
+const int rxPin = 44;
+const int txPin = 43;
 // #define DEBUG 
 
 #endif

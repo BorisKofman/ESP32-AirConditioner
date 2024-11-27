@@ -21,7 +21,7 @@ ThermostatAccessory::ThermostatAccessory(DHT *dhtSensor, IRController *irCtrl)
     dht->begin();
 
 #endif
-    irController->beginsend();
+    irController->beginSend();
     
     currentState = new Characteristic::CurrentHeatingCoolingState(0, true);
     targetState = new Characteristic::TargetHeatingCoolingState(0, true);
@@ -33,64 +33,69 @@ ThermostatAccessory::ThermostatAccessory(DHT *dhtSensor, IRController *irCtrl)
 
     targetTemp->setRange(16, 31, 1);  // Set range for TargetTemperature
 
-    irController->setCharacteristics(targetState, targetTemp);
+    irController->setThermostatCharacteristics(targetState, targetTemp);
 }
 
 void ThermostatAccessory::loop() {
     unsigned long currentTime = millis();
+
+    if (lastReadTime == 0) {
+        lastReadTime = currentTime - readInterval;
+    }
+    
     if (currentTime - lastReadTime >= readInterval) {
         lastReadTime = currentTime;
         readTemperatureAndHumidity();
     }
+    
     irController->handleIR();
 }
 
 void ThermostatAccessory::readTemperatureAndHumidity() {
+    float adjustedTemp = 0.0;
+    float currentHumidityVal = 0.0;
+
 #if USE_BME680 == 1
     if (!bme->performReading()) {
         Serial.println(F("Failed to read from BME680 sensor!"));
         return;
     }
-    // Adjust the temperature with the offset
-    float adjustedTemp = bme->temperature - TEMP_OFFSET;
-    currentTemp->setVal(adjustedTemp);
-    currentHumidity->setVal(bme->humidity);
+    adjustedTemp = round(bme->temperature - TEMP_OFFSET);
+    currentHumidityVal = round(bme->humidity);
+
 #else
     float temperature = dht->readTemperature();
     float humidity = dht->readHumidity();
     if (!isnan(temperature) && !isnan(humidity)) {
-        // Adjust the temperature with the offset
-        float adjustedTemp = temperature - TEMP_OFFSET;
-        currentTemp->setVal(adjustedTemp);
-        currentHumidity->setVal(humidity);
+        adjustedTemp = round(temperature - TEMP_OFFSET);
+        currentHumidityVal = round(humidity);
     } else {
         Serial.println("Failed to read from DHT sensor!");
+        return;
     }
 #endif
+
+    if (adjustedTemp != lastSentTemp) {
+        currentTemp->setVal(adjustedTemp);
+        lastSentTemp = adjustedTemp;
+        Serial.print("Updated Temperature: ");
+        Serial.println(adjustedTemp);
+    }
+
+    // Only update humidity if it has changed
+    if (currentHumidityVal != lastSentHumidity) {
+        currentHumidity->setVal(currentHumidityVal);
+        lastSentHumidity = currentHumidityVal;  
+        Serial.print("Updated Humidity: ");
+        Serial.println(currentHumidityVal);
+    }
 }
 
 boolean ThermostatAccessory::update() {
     bool power = targetState->getNewVal() != 0;
     int mode = targetState->getNewVal(); 
     int temp = targetTemp->getNewVal(); 
-    int direction = fanAccessory->getrotationDirection();  
-    Serial.print("Thermost switch direction: ");
-    Serial.println(direction);
-    fanAccessory->setrotationDirectionState(1);
-    fanAccessory->CurrentFanState(0);
 
-
-    irController->sendCommand(power, mode, temp);
+    irController->sendThermostatCommand(power, mode, temp);
     return true;
-}
-
-int ThermostatAccessory::getCurrentState() {
-    int state = currentState->getVal();
-    return state;
-}
-
-void ThermostatAccessory::setCurrentState(int state) {
-    if (targetState) {
-        targetState->setVal(state); 
-    }
 }

@@ -1,374 +1,296 @@
 #include "IRController.h"
-#include <cstring> 
 
 const uint8_t kTolerancePercentage = 25; 
 const uint16_t kMinUnknownSize = 12; 
 
+// Constructor
 IRController::IRController(uint16_t sendPin, uint16_t recvPin, uint16_t captureBufferSize, uint8_t timeout, bool debug)
-    : sendPin(sendPin), recvPin(recvPin), captureBufferSize(captureBufferSize), timeout(timeout), debug(debug), 
-      irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), goodweatherAc(sendPin), airtonAc(sendPin), 
-      amcorAc(sendPin), kelonAc(sendPin), tecoAc(sendPin) { 
+    : irsend(sendPin), irrecv(recvPin, captureBufferSize, timeout, debug), acController(sendPin, false, debug) {
+    lastStateValid = false;
 }
 
-void IRController::beginsend() {
-    irsend.enableIROut(38000, 50); 
+// Helper method for lazy initialization of Preferences
+bool IRController::initPreferences(bool readOnly) {
+    if (!preferences.begin("IRController", readOnly)) {
+        logCharacteristicUpdate("Error", "Failed to initialize Preferences.");
+        return false;
+    }
+    return true;
+}
+
+// Initialize IR sending
+void IRController::beginSend() {
+    logCharacteristicUpdate("Info", "Initializing IR send...");
     irsend.begin();
-    Serial.println("send pin");
-    Serial.print(sendPin);
+    logCharacteristicUpdate("Info", "IR sender initialized.");
+  
+    if (!loadLastState()) {
+        logCharacteristicUpdate("Warning", "No valid last state found.");
+    } else {
+        logCharacteristicUpdate("Info", "Last state loaded successfully.");
+    }
+
+    String activeProtocol = getProtocol();
+    if (activeProtocol.isEmpty()) {
+        logCharacteristicUpdate("Error", "No protocol found. Cannot send commands.");
+    } else {
+        logCharacteristicUpdate("ActiveProtocol", activeProtocol.c_str());
+    }
 }
 
-void IRController::beginreceive() {
+// Initialize IR receiving
+void IRController::beginReceive() {
+#ifdef DEBUG
+    irrecv.enableIRIn();
+#else
     irrecv.setTolerance(kTolerancePercentage);
     irrecv.setUnknownThreshold(kMinUnknownSize);
     irrecv.enableIRIn();
+#endif
+    logCharacteristicUpdate("Info", "IR receiver initialized.");
 }
 
-void IRController::setCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *coolingTemp) {
-    this->currentState = targetState;
-    this->coolingTemp = coolingTemp;
-}
-
+// Handle incoming IR signals
 void IRController::handleIR() {
     decode_results results;
     if (irrecv.decode(&results)) {
-        String type = typeToString(results.decode_type);
-        if (type == "UNKNOWN") {
-            Serial.println("Dropping UNKNOWN");
-            irrecv.resume(); 
-            return;
-        } 
-        Serial.print("Received signal from: ");
-        Serial.println(type);
-        getIRType();  
+        String detectedProtocol = typeToString(results.decode_type);
+        logCharacteristicUpdate("DetectedProtocol", detectedProtocol.c_str());
+        logCharacteristicUpdate("DetectedValue", results.value);
+        logCharacteristicUpdate("DetectedCommand", results.command);
+        if (detectedProtocol != "UNKNOWN" && !detectedProtocol.isEmpty()) {
+            String savedProtocol = getProtocol();
 
-        if (irType == "UNKNOWN" || irType == "") {
-            preferences.begin("ac_ctrl", false);
-            preferences.putString("irType", type);
-            preferences.end();
-            Serial.print("AC control type is configured: ");
-            Serial.println(type);
-            clearDecodeResults(&results);
-            irrecv.resume(); 
-            return;
-        } else {
-            Serial.print("AC control already configured protocol: ");
-            Serial.println(irType);
+            if (savedProtocol != detectedProtocol) {
+                saveProtocol(detectedProtocol.c_str());
+                logCharacteristicUpdate("SavedProtocol", detectedProtocol.c_str());
+            }
 
-            if (irType == GOODWEATHER && type == GOODWEATHER) {
-                goodweatherAc.setRaw(results.value);
-                processACState(goodweatherAc); //, targetState, coolingTemp
+            if (savedProtocol == detectedProtocol) {
+                if (IRAcUtils::decodeToState(&results, &lastState, &lastState)) {
+                    lastStateValid = true;
+                    saveLastState();
+                    updateHomeKitFromIR();
+                }
             }
-            else if (irType == AIRTON && type == AIRTON) {
-                airtonAc.setRaw(results.value);
-                processACState(airtonAc); //, targetState, coolingTemp);
-            }
-            else if (irType == AMCOR && type == AMCOR) {
-                uint8_t raw[sizeof(results.value)];  // Declare the 'raw' array here
-                memcpy(raw, &results.value, sizeof(results.value));  // Use 'memcpy' correctly
-                amcorAc.setRaw(raw);  // Now 'raw' is in scope and initialized properly
-                processACState(amcorAc); //, targetState, coolingTemp);
-            }
-            else if ((irType == KELON || irType == KELON168) && (type == KELON || type == KELON168)) {
-
-                kelonAc.setRaw(results.value);
-                processACState(kelonAc);//, targetState, coolingTemp);
-            } 
-            else if (irType == TECO && type == TECO) {
-                tecoAc.setRaw(results.value);
-                processACState(tecoAc);
-            }
-            else {
-                Serial.println("Skipping unsupported protocol.");
-            }
-            clearDecodeResults(&results);
-            irrecv.resume(); 
-            return; 
         }
+        irrecv.resume();
     }
 }
 
-void IRController::sendCommand(bool power, int mode, int temp) {
-    getIRType();
-    irrecv.pause();
-    delay(10);
-    bool lastPowerState = false;  // Track the last power state
+// Save protocol to preferences
+void IRController::saveProtocol(const char *protocol) {
+    if (!initPreferences(false)) return;
 
-    if (irType == "GOODWEATHER") {
-        configureGoodweatherAc(power, mode, temp);
-        irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-    } else if (irType == "AIRTON") {
-        configureAirtonAc(power, mode, temp);
-        irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
-    } else if (irType == "AMCOR") {
-        configureAmcorAc(power, mode, temp);
-        irsend.sendAmcor(amcorAc.getRaw(), kAmcorBits);
-    } else if (irType == "KELON" || irType == "KELON168") {
-        kelonAc.ensurePower(true);
-        configureKelonAc(power, mode, temp);
-        irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
-    } else if (irType == TECO) {
-        configureTecoAc(power, mode, temp);
-        irsend.sendTeco(tecoAc.getRaw(), kTecoBits);
-    } else {
-        Serial.println("AC control type is not configured.");
+    if (!isProtocolSaved(protocol)) {
+        preferences.putString("protocol", protocol);
+        logCharacteristicUpdate("SavedProtocol", protocol);
     }
-
-    delay(10);
-    irrecv.resume();
-}
-
-void IRController::getIRType() {
-    preferences.begin("ac_ctrl", true);
-    irType = preferences.getString("irType", "");
     preferences.end();
 }
 
-void IRController::clearDecodeResults(decode_results *results) {
-    results->decode_type = UNKNOWN;
-    results->value = 0;
-    results->address = 0;
-    results->command = 0;
-    results->bits = 0;
-    results->rawlen = 0;
-    results->overflow = false;
-    results->repeat = false;
-    memset(results->state, 0, sizeof(results->state));
+// Check if protocol is already saved
+bool IRController::isProtocolSaved(const char* protocol) {
+    String savedProtocol = getProtocol();
+    return savedProtocol == protocol;
 }
 
-void IRController::setLight(bool state) {
-    getIRType(); 
-    if (irType == "GOODWEATHER") {
-        irrecv.pause();
-        delay(10);
+// Get saved protocol from preferences
+String IRController::getProtocol() {
+    if (!initPreferences(true)) return "";
+    String protocol = preferences.getString("protocol", "");
+    preferences.end();
+    return protocol;
+}
 
-        if (state) {
-            goodweatherAc.setLight(1);
-        } else {
-            goodweatherAc.setLight(0);
+// Update HomeKit state from lastState
+void IRController::updateHomeKitFromIR() {
+    if (!lastState.power) {
+        if (targetState) {
+            targetState->setVal(0);  // Off
+            logCharacteristicUpdate("TargetState", "Off");
         }
+        return;
+    }
 
-        irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-        delay(10);  
-        irrecv.resume();
+    if (targetTemp && targetTemp->getVal() != lastState.degrees) {
+        targetTemp->setVal(lastState.degrees);
+        logCharacteristicUpdate("TargetTemp", lastState.degrees);
+    }
+
+    if (targetState) {
+        switch (lastState.mode) {
+            case stdAc::opmode_t::kHeat:
+                targetState->setVal(1);  // Heat
+                logCharacteristicUpdate("TargetState", "Heat");
+                break;
+            case stdAc::opmode_t::kCool:
+                targetState->setVal(2);  // Cool
+                logCharacteristicUpdate("TargetState", "Cool");
+                break;
+            case AUTO_MODE:
+                targetState->setVal(3);  // Fan
+                logCharacteristicUpdate("TargetState", "Fan");
+                break;
+            default:
+                targetState->setVal(0);  // Off
+                logCharacteristicUpdate("TargetState", "Off");
+                break;
+        }
+    }
+
+    if (fanRotationSpeed) {
+        int fanSpeedValue = 0;
+        switch (lastState.fanspeed) {
+            case stdAc::fanspeed_t::kLow:
+                fanSpeedValue = 33;
+                break;
+            case stdAc::fanspeed_t::kMedium:
+                fanSpeedValue = 66;
+                break;
+            case stdAc::fanspeed_t::kHigh:
+                fanSpeedValue = 99;
+                break;
+            default:
+                fanSpeedValue = 0;
+                break;
+        }
+        fanRotationSpeed->setVal(fanSpeedValue);
+        logCharacteristicUpdate("FanSpeed", fanSpeedValue);
     } else {
-        Serial.println("Unsupported AC protocol for light control.");
+        logCharacteristicUpdate("Error", "fanRotationSpeed characteristic is not initialized.");
     }
 }
 
-void IRController::setFanMode(int power, int fan, bool swing, bool direction) {
-    getIRType(); 
+// Save last state
+void IRController::saveLastState() {
+    if (!initPreferences(false)) return;
+    preferences.putBytes("lastState", &lastState, sizeof(lastState));
+    preferences.end();
+    logCharacteristicUpdate("Info", "Last state saved successfully.");
+}
+
+// Load last state
+bool IRController::loadLastState() {
+    if (!initPreferences(true)) return false;
+    size_t size = preferences.getBytes("lastState", &lastState, sizeof(lastState));
+    lastStateValid = (size == sizeof(lastState));
+    preferences.end();
+    return lastStateValid;
+}
+
+
+// Send thermostat command
+void IRController::sendThermostatCommand(bool power, int mode, int temp) {
+    stdAc::state_t newState = lastState;
+    newState.power = power;
+    newState.degrees = temp;
+    newState.light = true;
+    
+    switch (mode) {
+        case 1:  // Heat
+            newState.mode = stdAc::opmode_t::kHeat;
+            break;
+        case 2:  // Cool
+            newState.mode = stdAc::opmode_t::kCool;
+            break;
+        case 3:  // Auto
+            newState.mode = AUTO_MODE;
+            break;
+        default:  // Off
+            newState.mode = stdAc::opmode_t::kOff;
+            break;
+    }
+
+    sendCommand(newState);
+}
+
+// Send fan command
+void IRController::sendFanCommand(int fanSpeed, bool swing) {
+    stdAc::state_t newState = lastState;
+
+    int mappedFanSpeed = (fanSpeed == 0) ? 1  // First step
+                        : (fanSpeed <= 33) ? 2  // Second step
+                        : (fanSpeed <= 66) ? 3  // Third step
+                        : (fanSpeed <= 99) ? 4  // Fourth step
+                        : 5;                    // Maximum step (100)
+    newState.fanspeed = static_cast<stdAc::fanspeed_t>(mappedFanSpeed);
+
+    stdAc::swingv_t swingv = swing ? stdAc::swingv_t::kOff : stdAc::swingv_t::kAuto;
+    newState.swingv = swingv;
+
+    sendCommand(newState);
+}
+
+// Send command
+void IRController::sendCommand(stdAc::state_t newState) {
+    String savedProtocol = getProtocol();
+    if (savedProtocol.isEmpty()) {
+        logCharacteristicUpdate("Error", "No protocol saved. Cannot send command.");
+        return;
+    }
 
     irrecv.pause();
-    delay(10);  // Short delay to ensure the receiver is paused
+    delay(10);
 
-    if (irType == "GOODWEATHER") {
-        this->configureFanMode(goodweatherAc, power, fan, swing, direction);
-        Serial.println("Sending IR command to set mode to FAN for GOODWEATHER.");
-        irsend.sendGoodweather(goodweatherAc.getRaw(), kGoodweatherBits);
-    } else if (irType == "AMCOR") {
-        this->configureFanMode(amcorAc, power, fan, swing, direction);
-        Serial.println("Sending IR command to set mode to FAN for AMCOR.");
-        irsend.sendAmcor(amcorAc.getRaw(), kAmcorBits);
-    } else if (irType == "AIRTON") {
-        this->configureFanMode(airtonAc, power, fan, swing, direction);
-        Serial.println("Sending IR command to set mode to FAN for AIRTON.");
-        irsend.sendAirton(airtonAc.getRaw(), kAirtonBits);
-    } else if (irType == "KELON" || irType == "KELON168") {
-        kelonAc.ensurePower(true); // Pass 'true' to ensure it's turned on
-        this->configureFanMode(kelonAc, power, fan, swing, direction);
-        Serial.println("Sending IR command to set mode to FAN for KELON168.");
-        irsend.sendKelon(kelonAc.getRaw(), kKelonBits);
+    if (acController.sendAc(newState, &lastState)) {
+        lastState = newState;
+        saveLastState();
+        logCharacteristicUpdate("Info", "IR command sent successfully.");
     } else {
-        Serial.println("Unsupported AC protocol for fan mode.");
+        logCharacteristicUpdate("Error", "Failed to send AC command.");
     }
 
     delay(10);
     irrecv.resume();
 }
 
-int IRController::getFanSetting(const String& protocol, int fan) {
-    if (protocol == "GOODWEATHER") {
-        if (fan <= 25) { 
-            return kGoodweatherFanLow;
-        } else if (fan <= 50) {
-            return kGoodweatherFanMed;
-        } else if (fan <= 75) {
-            return kGoodweatherFanHigh;
-        } else {
-            return kGoodweatherFanAuto;
-        }
-    } else if (protocol == "AMCOR") {
-        if (fan <= 25) {
-            return kAmcorFanMin;
-        } else if (fan <= 50) {
-            return kAmcorFanMed;
-        } else if (fan <= 75) {
-            return kAmcorFanMax;
-        } else {
-            return kAmcorFanAuto;
-        }
-    } else if (protocol == "AIRTON") {
-        if (fan <= 25) {
-            return kAirtonFanLow; 
-        } else if (fan <= 50) {
-            return kAirtonFanMed; 
-        } else if (fan <= 75) {
-            return kAirtonFanHigh;
-        } else {
-            return kAirtonFanAuto;
-        }
-      } else if (protocol == "KELON" || protocol == "KELON168") {
-        if (fan <= 25) {
-            return kKelonFanMin;
-        } else if (fan <= 50) {
-            return kKelonFanMedium;
-        } else if (fan <= 75) {
-            return kKelonFanMax;
-        } else {
-            return kKelonFanAuto;
-        }
-      } else if (protocol == "TECO") {
-        if (fan <= 25) {
-            return kTecoFanLow;
-        } else if (fan <= 50) {
-            return kTecoFanMed;
-        } else if (fan <= 75) {
-            return kTecoFanHigh;
-        } else {
-            return kTecoFanAuto;
-        }
-      } else {
-        Serial.println("Unknown protocol for fan settings.");
-        return -1;
-    }
-}
+// Set thermostat characteristics
+void IRController::setThermostatCharacteristics(SpanCharacteristic *targetState, SpanCharacteristic *targetTemp) {
+    this->targetState = targetState;
+    this->targetTemp = targetTemp;
 
-//FAN
-void IRController::configureGoodweatherAc(bool power, int mode, int temp) {
-    goodweatherAc.setPower(power);
-    goodweatherAc.setMode(convertToGoodweatherMode(mode));
-    goodweatherAc.setTemp(temp);
-}
-
-void IRController::configureAirtonAc(bool power, int mode, int temp) {
-    airtonAc.setPower(power);
-    airtonAc.setMode(convertToAirtonMode(mode));
-    airtonAc.setTemp(temp);
-    airtonAc.setLight("on");
-
-}
-
-void IRController::configureAmcorAc(bool power, int mode, int temp) {
-    amcorAc.setPower(power);
-    amcorAc.setMode(convertToAmcorMode(mode));
-    amcorAc.setTemp(temp);
-}
-
-void IRController::configureKelonAc(bool power, int mode, int temp) {
-    kelonAc.setTogglePower(power);
-    kelonAc.setMode(convertToKelonMode(mode));
-    kelonAc.setTemp(temp);
-}
-
-void IRController::configureTecoAc(bool power, int mode, int temp) {
-    tecoAc.setPower(power);
-    tecoAc.setMode(convertToTecoMode(mode));
-    tecoAc.setTemp(temp);
-}
-
-int IRController::convertToGoodweatherMode(int homeKitMode) {
-    switch (homeKitMode) {
-        case 1:  // HomeKit Heat
-            return kGoodweatherHeat;
-        case 2:  // HomeKit Cool
-            return kGoodweatherCool;
-        case 3:  // HomeKit auto
-            return kGoodweatherAuto;
-        default:
-            return kGoodweatherAuto;
-    }
-}
-
-int IRController::convertToAirtonMode(int homeKitMode) {
-    switch (homeKitMode) {
-        case 1:  // HomeKit Heat
-            return kAirtonHeat;
-        case 2:  // HomeKit Cool
-            return kAirtonCool;
-        case 3:  // HomeKit auto
-            return kAirtonAuto;
-        default:
-            return kAirtonAuto;
-    }
-}
-
-int IRController::convertToAmcorMode(int homeKitMode) {
-    switch (homeKitMode) {
-        case 1:  // HomeKit Heat
-            return kAmcorHeat;
-        case 2:  // HomeKit Cool
-            return kAmcorCool;
-        case 3:  // HomeKit Off
-            return kAmcorAuto;
-        default:
-            return kAmcorAuto;
-    }
-}
-
-int IRController::convertToKelonMode(int homeKitMode) {
-    switch (homeKitMode) {
-        case 1:  // HomeKit Heat
-            return kKelonModeHeat;
-        case 2:  // HomeKit Cool
-            return kKelonModeCool;
-        case 3:  // HomeKit auto
-            return kKelonModeSmart;
-        default:
-            return kKelonModeSmart;
-    }
-}
-
-int IRController::convertToTecoMode(int homeKitMode) {
-    switch (homeKitMode) {
-        case 1:  // HomeKit Heat
-            return kTecoHeat;   
-        case 2:  // HomeKit Cool
-            return kTecoCool;   
-        case 3:  // HomeKit Auto
-            return kTecoAuto; 
-        default:
-            return kTecoAuto;
-    }
-}
-
-template<typename ACType>
-void IRController::processACState(ACType& ac) {
-    bool isPoweredOn;
-    if constexpr (std::is_same<ACType, IRKelonAc>::value) {
-        isPoweredOn = ac.getTogglePower();
+    if (this->targetState && this->targetTemp) {
+        logCharacteristicUpdate("Info", "Thermostat characteristics initialized.");
     } else {
-        isPoweredOn = ac.getPower() != 0;
+        logCharacteristicUpdate("Error", "Failed to initialize thermostat characteristics.");
     }
+}
 
-    if (!isPoweredOn) {  // If the AC is powered off, set the state to 3 (off)
-        currentState->setVal(0);
+// Set fan characteristics
+void IRController::setFanCharacteristics(SpanCharacteristic *fanRotationSpeed, SpanCharacteristic *swingMode) {
+    this->fanRotationSpeed = fanRotationSpeed;
+    this->swingMode = swingMode;
+
+    if (this->fanRotationSpeed && this->swingMode) {
+        logCharacteristicUpdate("Info", "Fan characteristics initialized successfully.");
+    } else {
+        logCharacteristicUpdate("Error", "Failed to initialize fan characteristics.");
     }
-    else if (isPoweredOn) {  // If the AC is powered on, process the mode and temperature
-        int mode = ac.getMode();
-        switch (mode) {
-            case 0:  // Remote auto, HomeKit auto
-                currentState->setVal(3);
-                break;
-            case 4:  // Remote heating, HomeKit heating
-                currentState->setVal(1);
-                break;
-            case 1:  // Remote cooling, HomeKit cooling
-                currentState->setVal(2);
-                break;
-            default:
-                currentState->setVal(3);  // Default to auto
-                break;
-        }
-        coolingTemp->setVal(ac.getTemp());
+}
+
+// Log characteristic updates (string)
+void IRController::logCharacteristicUpdate(const char* characteristic, const char* value, const char* level) {
+#ifdef DEBUG
+    // Log all levels when DEBUG is defined
+    Serial.printf("[%s] %s: %s\n", level, characteristic, value);
+#else
+    // Only log errors when DEBUG is not defined
+    if (strcmp(level, "Error") == 0) {
+        Serial.printf("[ERROR] %s: %s\n", characteristic, value);
     }
+#endif
+}
+
+// Log characteristic updates (integer)
+void IRController::logCharacteristicUpdate(const char* characteristic, int value, const char* level) {
+#ifdef DEBUG
+    // Log all levels when DEBUG is defined
+    Serial.printf("[%s] %s: %d\n", level, characteristic, value);
+#else
+    // Only log errors when DEBUG is not defined
+    if (strcmp(level, "Error") == 0) {
+        Serial.printf("[ERROR] %s: %d\n", characteristic, value);
+    }
+#endif
 }
