@@ -28,7 +28,7 @@ jobs:
 
     - name: Install HomeSpan Library
       run: |
-        arduino-cli lib install "DHT-sensor-library"
+        arduino-cli lib install "DHT sensor library"
 
     - name: List Installed Libraries
       run: |
