@@ -41,7 +41,7 @@ jobs:
 
     - name: Check Custom Library Folder
       run: |
-        ls -R libraries
+        ls -la
 
     - name: Compile Sketch
       run: |
