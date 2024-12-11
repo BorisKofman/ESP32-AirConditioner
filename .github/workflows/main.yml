@@ -24,15 +24,11 @@ jobs:
     - name: Clone HomeSpan and IRremoteESP8266
       run: |
         git clone --branch ethernet https://github.com/HomeSpan/HomeSpan.git /home/runner/Arduino/libraries/HomeSpan
-        git clone https://github.com/BorisKofman/IRremoteESP8266.git /home/runner/Arduino/libraries/IRremoteESP8266
+        git clone --branch Espressif-version-3 https://github.com/BorisKofman/IRremoteESP8266.git /home/runner/Arduino/libraries/IRremoteESP8266
 
     - name: Install HomeSpan Library
       run: |
         arduino-cli lib install "DHT sensor library"
-
-    - name: Debug Arduino CLI Config
-      run: |
-        arduino-cli config dump
 
     - name: Compile Sketch
       run: |
