@@ -32,4 +32,4 @@ jobs:
 
     - name: Compile Sketch
       run: |
-        arduino-cli compile --fqbn esp32:esp32:esp32s3 ESP32-AirConditioner.ino
+        arduino-cli compile --fqbn esp32:esp32:gen4-ESP32-S3R8n16 ESP32-AirConditioner.ino
