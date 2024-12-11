@@ -34,7 +34,9 @@ jobs:
     - name: List Installed Libraries
       run: |
         arduino-cli lib list
-
+      env:
+        ARDUINO_LIBRARY_PATH: libraries
+        
     - name: Check Custom Library Folder
       run: |
         ls -R libraries
