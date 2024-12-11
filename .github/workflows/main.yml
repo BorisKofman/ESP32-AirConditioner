@@ -21,22 +21,24 @@ jobs:
         arduino-cli core update-index
         arduino-cli core install esp32:esp32
 
-    - name: Clone HomeSpan and IRremoteESP8266
+    # - name: Clone HomeSpan and IRremoteESP8266
+    #   run: |
+    #     mkdir -p libraries
+    #     git clone --branch ethernet https://github.com/HomeSpan/HomeSpan.git libraries/HomeSpan
+    #     git clone https://github.com/BorisKofman/IRremoteESP8266.git libraries/IRremoteESP8266
+
+    - name: Install HomeSpan Library
       run: |
-        mkdir -p libraries
-        git clone --branch ethernet https://github.com/HomeSpan/HomeSpan.git libraries/HomeSpan
-        git clone https://github.com/BorisKofman/IRremoteESP8266.git libraries/IRremoteESP8266
+        arduino-cli lib install "HomeSpan"
+
+    - name: List Installed Libraries
+      run: |
+        arduino-cli lib list
 
     - name: Debug Arduino CLI Config
       run: |
         arduino-cli config dump
 
-    - name: List Installed Libraries
-      run: |
-        arduino-cli lib list
-      env:
-        ARDUINO_LIBRARY_PATH: libraries
-        
     - name: Check Custom Library Folder
       run: |
         ls -R libraries
