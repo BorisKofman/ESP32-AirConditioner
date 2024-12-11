@@ -1,4 +1,4 @@
-name: Build ESP32 Project with Custom Libraries
+name: Build ESP32 Project with Arduino CLI
 
 on:
   push:
@@ -15,21 +15,34 @@ jobs:
 
     - name: Install Arduino CLI
       uses: arduino/setup-arduino-cli@v2
+      with:
+        version: latest
 
     - name: Install ESP32 Board Package
       run: |
         arduino-cli core update-index
         arduino-cli core install esp32:esp32
 
-    - name: Clone HomeSpan (Ethernet Branch) and IRremoteESP8266
+    - name: Clone HomeSpan and IRremoteESP8266
       run: |
         mkdir -p libraries
         git clone --branch ethernet https://github.com/HomeSpan/HomeSpan.git libraries/HomeSpan
         git clone https://github.com/BorisKofman/IRremoteESP8266.git libraries/IRremoteESP8266
 
+    - name: Debug Arduino CLI Config
+      run: |
+        arduino-cli config dump
+
+    - name: List Installed Libraries
+      run: |
+        arduino-cli lib list
+
+    - name: Check Custom Library Folder
+      run: |
+        ls -R libraries
+
     - name: Compile Sketch
       run: |
-        ls -la libraries/
         arduino-cli compile --fqbn esp32:esp32:esp32s3 ESP32-AirConditioner.ino
       env:
         ARDUINO_LIBRARY_PATH: libraries
