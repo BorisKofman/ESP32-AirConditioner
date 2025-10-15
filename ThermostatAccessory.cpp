@@ -1,101 +1,87 @@
-#include "Config.h"
 #include "ThermostatAccessory.h"
-#include "FanAccessory.h"
+#include <math.h>
 
-extern FanAccessory* fanAccessory;
+void ThermostatAccessory::begin() {
+  // Initialize Matter thermostat endpoint
+  thermostat.begin(MatterThermostat::THERMOSTAT_SEQ_OP_COOLING,
+                   MatterThermostat::THERMOSTAT_AUTO_MODE_ENABLED);
 
-#if USE_BME680 == 1
-ThermostatAccessory::ThermostatAccessory(Adafruit_BME680 *bmeSensor, IRController *irCtrl, uint8_t sdaPin, uint8_t sclPin)
-    : Service::Thermostat(), bme(bmeSensor), irController(irCtrl), sdaPin(sdaPin), sclPin(sclPin) {
-    Wire.setPins(sdaPin, sclPin);
-    Wire.begin();
-    
-    if (!bme->begin()) {
-        Serial.println(F("Could not find a valid BME680 sensor, check wiring!"));
-        while (1);
+  // Set initial state and attributes before callbacks
+  thermostat.setLocalTemperature(22.0f);
+  thermostat.setCoolingHeatingSetpoints(20.0, 23.0);
+  thermostat.setMode(MatterThermostat::THERMOSTAT_MODE_AUTO);
+
+  // ---- Mode change callback ----
+  thermostat.onChangeMode([this](MatterThermostat::ThermostatMode_t mode) {
+    const bool power = (mode != MatterThermostat::THERMOSTAT_MODE_OFF);
+    const int mid = (thermostat.getCoolingSetpoint() + thermostat.getHeatingSetpoint()) / 2;
+
+    Serial.printf("[Thermostat] Mode changed: %d (Power=%s)\n",
+                  mode, power ? "ON" : "OFF");
+
+    switch (mode) {
+      case MatterThermostat::THERMOSTAT_MODE_COOL:
+        Serial.printf("Cooling to %.1f°C\n", thermostat.getCoolingSetpoint());
+        break;
+
+      case MatterThermostat::THERMOSTAT_MODE_HEAT:
+        Serial.printf("Heating to %.1f°C\n", thermostat.getHeatingSetpoint());
+        break;
+
+      case MatterThermostat::THERMOSTAT_MODE_AUTO:
+        Serial.printf("Auto mode, target mid temp %.1f°C\n", (float)mid);
+        break;
+
+      case MatterThermostat::THERMOSTAT_MODE_FAN_ONLY:
+        Serial.printf("Fan-only mode\n");
+        break;
+
+      default:
+        Serial.println("Thermostat off");
+        break;
     }
-
-#else
-ThermostatAccessory::ThermostatAccessory(DHT *dhtSensor, IRController *irCtrl)
-    : Service::Thermostat(), dht(dhtSensor), irController(irCtrl) {
-    dht->begin();
-
-#endif
-    irController->beginSend();
-    
-    currentState = new Characteristic::CurrentHeatingCoolingState(0, true);
-    targetState = new Characteristic::TargetHeatingCoolingState(0, true);
-    currentTemp = new Characteristic::CurrentTemperature(0);
-    targetTemp = new Characteristic::TargetTemperature(22, true);
-    unit = new Characteristic::TemperatureDisplayUnits(0, true);
-    currentHumidity = new Characteristic::CurrentRelativeHumidity(0);
-
-
-    targetTemp->setRange(16, 31, 1);  // Set range for TargetTemperature
-
-    irController->setThermostatCharacteristics(targetState, targetTemp);
-}
-
-void ThermostatAccessory::loop() {
-    unsigned long currentTime = millis();
-
-    if (lastReadTime == 0) {
-        lastReadTime = currentTime - readInterval;
-    }
-    
-    if (currentTime - lastReadTime >= readInterval) {
-        lastReadTime = currentTime;
-        readTemperatureAndHumidity();
-    }
-    
-    irController->handleIR();
-}
-
-void ThermostatAccessory::readTemperatureAndHumidity() {
-    float adjustedTemp = 0.0;
-    float currentHumidityVal = 0.0;
-
-#if USE_BME680 == 1
-    if (!bme->performReading()) {
-        Serial.println(F("Failed to read from BME680 sensor!"));
-        return;
-    }
-    adjustedTemp = round(bme->temperature - TEMP_OFFSET);
-    currentHumidityVal = round(bme->humidity);
-
-#else
-    float temperature = dht->readTemperature();
-    float humidity = dht->readHumidity();
-    if (!isnan(temperature) && !isnan(humidity)) {
-        adjustedTemp = round(temperature - TEMP_OFFSET);
-        currentHumidityVal = round(humidity);
-    } else {
-        Serial.println("Failed to read from DHT sensor!");
-        return;
-    }
-#endif
-
-    if (adjustedTemp != lastSentTemp) {
-        currentTemp->setVal(adjustedTemp);
-        lastSentTemp = adjustedTemp;
-        Serial.print("Updated Temperature: ");
-        Serial.println(adjustedTemp);
-    }
-
-    // Only update humidity if it has changed
-    if (currentHumidityVal != lastSentHumidity) {
-        currentHumidity->setVal(currentHumidityVal);
-        lastSentHumidity = currentHumidityVal;  
-        Serial.print("Updated Humidity: ");
-        Serial.println(currentHumidityVal);
-    }
-}
-
-boolean ThermostatAccessory::update() {
-    bool power = targetState->getNewVal() != 0;
-    int mode = targetState->getNewVal(); 
-    int temp = targetTemp->getNewVal(); 
-
-    irController->sendThermostatCommand(power, mode, temp);
     return true;
+  });
+
+  // ---- Cooling setpoint callback ----
+  thermostat.onChangeCoolingSetpoint([this](float c) {
+    Serial.printf("[Thermostat] Cooling setpoint changed: %.1f°C\n", c);
+    return true;
+  });
+
+  // ---- Heating setpoint callback ----
+  thermostat.onChangeHeatingSetpoint([this](float c) {
+    Serial.printf("[Thermostat] Heating setpoint changed: %.1f°C\n", c);
+    return true;
+  });
+}
+
+void ThermostatAccessory::updateTemperature(float tempC, float /*humidity*/) {
+  if (isnan(lastTemp) || fabsf(tempC - lastTemp) >= 0.1f) {
+    thermostat.setLocalTemperature(tempC);
+    Serial.printf("[Thermostat] Current temperature: %.1f°C\n", tempC);
+    lastTemp = tempC;
+  }
+
+  const float coolSP = thermostat.getCoolingSetpoint();
+  const float heatSP = thermostat.getHeatingSetpoint();
+  const auto mode = thermostat.getMode();
+
+  bool heat = false, cool = false;
+
+  if (mode == MatterThermostat::THERMOSTAT_MODE_AUTO) {
+    heat = tempC < heatSP;
+    cool = tempC > coolSP;
+  } else if (mode == MatterThermostat::THERMOSTAT_MODE_HEAT) {
+    heat = tempC < heatSP;
+  } else if (mode == MatterThermostat::THERMOSTAT_MODE_COOL) {
+    cool = tempC > coolSP;
+  }
+
+  if (heat)
+    Serial.println("[Thermostat] Heating ON");
+  else if (cool)
+    Serial.println("[Thermostat] Cooling ON");
+  else
+    Serial.println("[Thermostat] System idle");
 }
