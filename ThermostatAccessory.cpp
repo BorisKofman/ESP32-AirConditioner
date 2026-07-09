@@ -19,6 +19,8 @@ void ThermostatAccessory::begin() {
 
   // Initialize fan control with OFF, LOW, MEDIUM, HIGH modes
   fan.begin(0, MatterFan::FAN_MODE_OFF, MatterFan::FAN_MODE_SEQ_OFF_LOW_MED_HIGH);
+
+  humidity.begin(50.0);
   
   Serial.println("[Thermostat] Initialized with fan control (OFF/LOW/MED/HIGH modes)");
 
@@ -235,6 +237,10 @@ void ThermostatAccessory::tick() {
 
 void ThermostatAccessory::updateTemperature(float tempC) {
   thermostat.setLocalTemperature(tempC);
+}
+
+void ThermostatAccessory::updateHumidity(float humidityPercent) {
+  humidity.setHumidity(humidityPercent);
 }
 
 double ThermostatAccessory::effectiveTargetTemperature() const {

@@ -19,6 +19,7 @@ public:
   void zeroDeadband();
   void tick();
   void updateTemperature(float tempC);
+  void updateHumidity(float humidityPercent);
 
 private:
   // Single target temperature to send to the AC, regardless of Matter's
@@ -36,6 +37,7 @@ private:
 
   MatterThermostat thermostat;
   MatterFan fan;  // Fan control - shows under same device in HomeKit
+  MatterHumiditySensor humidity;
   IRController *ir = nullptr;
   // True while mirrorIRState() updates Matter attributes: the resulting
   // callbacks must not send the state back out over IR (the AC already has

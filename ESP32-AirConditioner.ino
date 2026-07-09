@@ -1,12 +1,37 @@
 #include <Matter.h>
 #include "Config.h"
 #include <WiFi.h>
+#include <DHT.h>
 #include "ThermostatAccessory.h"
 #include "IRController.h"
 #include "CustomCommissionableData.h"
 
 ThermostatAccessory thermostatAccessory;
 IRController irController(IR_SEND_PIN, IR_RECV_PIN, IR_CAPTURE_BUFFER, IR_TIMEOUT_MS, false);
+DHT dht(DHTPIN, DHTTYPE);
+
+// Read the DHT every SENSOR_READ_MS and feed temperature (with the
+// self-heating offset) and humidity into the Matter endpoints.
+void readSensor() {
+  static unsigned long lastRead = 0;
+  if (millis() - lastRead < SENSOR_READ_MS && lastRead != 0) {
+    return;
+  }
+  lastRead = millis();
+
+  float temperature = dht.readTemperature();
+  float humidityVal = dht.readHumidity();
+  if (isnan(temperature) || isnan(humidityVal)) {
+    Serial.println("[DHT] Failed to read from sensor");
+    return;
+  }
+
+  float adjustedTemp = round(temperature - TEMP_OFFSET);
+  Serial.printf("[DHT] Temperature: %.0f°C (raw %.1f), Humidity: %.0f%%\n",
+                adjustedTemp, temperature, humidityVal);
+  thermostatAccessory.updateTemperature(adjustedTemp);
+  thermostatAccessory.updateHumidity(round(humidityVal));
+}
 
 // Decommission from the Matter fabric and reboot. esp_matter's factory
 // reset restarts on its own; ESP.restart() is a fallback in case it returns.
@@ -70,6 +95,8 @@ void setup() {
   irController.beginSend();
   irController.beginReceive();
   thermostatAccessory.setIRController(&irController);
+
+  dht.begin();
 
   #if SHOW_MATTER_STATUS
     Serial.println("[Setup] Thermostat endpoint created.");
@@ -142,6 +169,7 @@ void setup() {
 void loop() {
   thermostatAccessory.tick();
   irController.handleIR();
+  readSensor();
 
   // Long-press the reset button at runtime → factory reset
   static unsigned long pressStart = 0;
