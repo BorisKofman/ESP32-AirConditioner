@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# ---- ESP-IDF (native Thread build under idf/) ----
+# Generated build output (compiled objects, CHIP stack, final .bin)
+idf/build/
+
+# Managed components are re-fetched from idf_component.yml on build
+idf/managed_components/
+
+# Generated from sdkconfig.defaults by `idf.py set-target` — keep only the .defaults
+idf/sdkconfig
+idf/sdkconfig.old
+
+# Component manager lock file (regenerated on resolve)
+idf/dependencies.lock
+
+# Scratch/backup manifest created during the Arduino->native port
+idf/main/idf_component.yml.full
+
+# ---- Arduino IDE build caches (WiFi build) ----
+build/
+*.bin.tmp

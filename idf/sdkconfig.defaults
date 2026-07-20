@@ -1,0 +1,96 @@
+# =============================================================================
+# Matter-over-Thread defaults for ESP32-C6.
+# These are applied on a fresh build (delete sdkconfig to re-apply after edits).
+# Verify option names against `idf.py menuconfig` for your exact IDF version —
+# Kconfig symbols occasionally get renamed between releases.
+# =============================================================================
+
+# --- Target -----------------------------------------------------------------
+CONFIG_IDF_TARGET="esp32c6"
+
+# --- Console over USB-Serial-JTAG -------------------------------------------
+# The C6 dev board's USB port is USB-Serial-JTAG. Make it the PRIMARY console
+# so app logs (endpoints, pairing code) come over USB, not the GPIO16/17 UART.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# --- Enable Matter over Thread, disable Matter over WiFi ---------------------
+# This is the crux: ESP-Matter picks transport WiFi -> Thread -> ETH, so WiFi
+# station MUST be off or the C6 will just use WiFi.
+CONFIG_ENABLE_MATTER_OVER_THREAD=y
+CONFIG_ENABLE_WIFI_STATION=n
+CONFIG_ENABLE_WIFI_AP=n
+
+# --- OpenThread stack --------------------------------------------------------
+CONFIG_OPENTHREAD_ENABLED=y
+CONFIG_OPENTHREAD_FTD=y
+CONFIG_OPENTHREAD_SRP_CLIENT=y
+CONFIG_OPENTHREAD_DNS_CLIENT=y
+# Quiet Thread logs: CRIT only. This drops the benign, noisy
+# "Failed to process UDP: Duplicated" WARN (a harmless duplicate-advertisement
+# discard) while still surfacing genuine critical Thread failures. (Static level
+# requires the dynamic level to be off.)
+CONFIG_OPENTHREAD_LOG_LEVEL_DYNAMIC=n
+CONFIG_OPENTHREAD_LOG_LEVEL_CRIT=y
+
+# --- 802.15.4 radio (native on C6) ------------------------------------------
+CONFIG_IEEE802154_ENABLED=y
+
+# --- Matter discovery over Thread (matches Espressif's working c6_thread cfg) -
+# CRITICAL: minimal mDNS does NOT work for operational discovery over Thread;
+# the device must register via SRP through the border router. USE_MINIMAL_MDNS=n
+# routes discovery through the platform/SRP path. With minimal mDNS on, the
+# device joins Thread but is never operationally discoverable, so the
+# commissioning fail-safe expires and the fabric is reverted ("Unable to Add").
+CONFIG_USE_MINIMAL_MDNS=n
+CONFIG_ENABLE_EXTENDED_DISCOVERY=y
+CONFIG_LWIP_IPV6_AUTOCONFIG=n
+CONFIG_LWIP_IPV6_NUM_ADDRESSES=8
+CONFIG_LWIP_MULTICAST_PING=y
+
+# --- Quieter CHIP logs -------------------------------------------------------
+# Decouple CHIP's log level from the general ESP level and set it to PROGRESS,
+# which drops the very noisy per-message Exchange Manager (chip[EM]) traffic
+# while keeping meaningful progress/error logs. App logs (INFO) still show.
+# CONFIG_CHIP_LOG_DEFAULT_LEVEL_EQUALS_LOG_DEFAULT_LEVEL is not set
+CONFIG_CHIP_LOG_DEFAULT_LEVEL_PROGRESS=y
+
+# --- BLE needed for commissioning (Thread credentials pushed over BLE) ------
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+
+# --- Size savings + OTA (from Espressif's official c6_thread config) ---------
+# Reuse mbedTLS SHA instead of libsodium's copy; drop the unused Groupcast
+# cluster. Both shrink the binary with no behavior change.
+CONFIG_LIBSODIUM_USE_MBEDTLS_SHA=y
+CONFIG_SUPPORT_GROUPCAST_CLUSTER=n
+# Matter OTA client: allows pushing firmware updates over Thread via the app.
+# (Requires an OTA provider node to actually serve an image; harmless if unused.)
+CONFIG_ENABLE_OTA_REQUESTOR=y
+
+# Use OUR custom passcode/discriminator provider (custom_commissioning.h) via
+# esp_matter::set_custom_commissionable_data_provider(), instead of the default
+# example provider that serves the shared CHIP test values (20202021/3840).
+CONFIG_CUSTOM_COMMISSIONABLE_DATA_PROVIDER=y
+
+# --- Flash / partition: Matter binary is large ------------------------------
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+# N16 module = 16 MB flash
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# --- Arduino core requirements ----------------------------------------------
+# The Arduino core hard-requires a 1000 Hz FreeRTOS tick (default is 100).
+CONFIG_FREERTOS_HZ=1000
+# setup()/loop() come from the sketch; main.cpp includes the .ino
+CONFIG_AUTOSTART_ARDUINO=y
+CONFIG_ARDUINO_LOOP_STACK_SIZE=8192
+
+# --- mbedTLS / crypto headroom for Matter -----------------------------------
+CONFIG_MBEDTLS_HKDF_C=y
+
+# --- Exclude unused clusters -------------------------------------------------
+# The ClosureControl/Dimension cluster code in this CHIP snapshot fails to
+# compile under GCC 13.2 (a Nullable<optional<...>> without operator==). We
+# don't use it, so deselect it (and its sibling) via esp-matter's cluster_select.
+CONFIG_SUPPORT_CLOSURE_CONTROL_CLUSTER=n
+CONFIG_SUPPORT_CLOSURE_DIMENSION_CLUSTER=n
