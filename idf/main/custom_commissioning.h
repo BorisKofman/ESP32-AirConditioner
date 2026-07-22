@@ -126,10 +126,15 @@ private:
 #endif
 
     // Derive whatever wasn't pinned from the chip's unique factory MAC.
-    uint8_t mac[6] = {0};
-    esp_err_t merr = esp_efuse_mac_get_default(mac);
+    // On 802.15.4 chips (C6/H2) the factory MAC is an 8-byte EUI-64; read all
+    // of it. (esp_efuse_mac_get_default writes 8 bytes on these chips — a
+    // 6-byte buffer overflows, and the first 6 EUI-64 bytes are OUI+ff:fe+1
+    // node byte, i.e. nearly batch-constant: hashing only those can collide
+    // between units. The full EUI-64 carries the real per-chip entropy.)
+    uint8_t mac[8] = {0};
+    esp_err_t merr = esp_read_mac(mac, ESP_MAC_IEEE802154);
     if (merr != ESP_OK) {
-      ESP_LOGE("commission", "esp_efuse_mac_get_default failed (%d); using fallback identity", merr);
+      ESP_LOGE("commission", "esp_read_mac(IEEE802154) failed (%d); using fallback identity", merr);
     }
 
 #if !defined(CUSTOM_MATTER_DISCRIMINATOR)
@@ -149,9 +154,9 @@ private:
 
     ESP_LOGI("commission",
              "Pairing identity: discriminator=%u  passcode=%08lu  "
-             "(MAC %02x:%02x:%02x:%02x:%02x:%02x)",
+             "(EUI-64 %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x)",
              (unsigned)mDiscriminator, (unsigned long)mPasscode,
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], mac[6], mac[7]);
 
     mDerived = true;
   }
