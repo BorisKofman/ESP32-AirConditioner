@@ -40,6 +40,15 @@
 #define RESET_BUTTON_GPIO  9
 #define RESET_HOLD_MS      5000
 
+// EXPERIMENT (tested 2026-07-22, verdict: keep 0): 1 = expose a single Room
+// Air Conditioner endpoint (device type 0x0072: OnOff + Thermostat +
+// FanControl on one endpoint) instead of separate thermostat + fan
+// endpoints. Apple Home rendered it IDENTICALLY to the plain thermostat —
+// no power toggle gained — and DROPPED the fan control entirely (optional
+// clusters on the 0x0072 endpoint are ignored, consistent with the humidity
+// lesson above). Strictly worse; kept for reference/other controllers.
+#define AC_ENDPOINT_EXPERIMENT 0
+
 using namespace esp_matter;
 using namespace chip::app::Clusters;
 
@@ -75,6 +84,7 @@ static uint16_t s_humidity_ep = 0;
 // are kept in Matter's native centi-degrees (int16, 0.01 C) — the old double
 // representation could tear on this 32-bit core and gained nothing.
 static gw_state_t s_ac;                              // current desired A/C state (main loop only)
+static std::atomic<bool>       s_power{true};        // Room-AC experiment: OnOff cluster state
 static std::atomic<uint8_t>    s_system_mode{MODE_COOL};
 static std::atomic<int16_t>    s_cool_centi{2200};   // OccupiedCoolingSetpoint
 static std::atomic<int16_t>    s_heat_centi{1950};   // OccupiedHeatingSetpoint
@@ -91,7 +101,7 @@ static void apply_to_ac() {
   s_apply_due = 0;
 
   uint8_t mode = s_system_mode;
-  if (mode == MODE_OFF) {
+  if (mode == MODE_OFF || !s_power.load()) {
     s_ac.power = false;
     s_ac.command = 0x00;  // kGoodweatherCmdPower
     ESP_LOGI(TAG, "AC -> OFF");
@@ -147,6 +157,20 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
   if (type != attribute::POST_UPDATE) {
     return ESP_OK;
   }
+
+#if AC_ENDPOINT_EXPERIMENT
+  // Room-AC experiment: the OnOff cluster is the AC's power switch.
+  if (endpoint_id == s_thermostat_ep && cluster_id == OnOff::Id &&
+      attribute_id == OnOff::Attributes::OnOff::Id) {
+    bool on = val->val.b;
+    if (on != s_power.load()) {
+      s_power = on;
+      ESP_LOGI(TAG, "Power -> %s", on ? "ON" : "OFF");
+      schedule_apply();
+    }
+    return ESP_OK;
+  }
+#endif
 
   if (endpoint_id == s_thermostat_ep && cluster_id == kThermostatCluster) {
     switch (attribute_id) {
@@ -207,6 +231,32 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
         set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::PercentCurrent::Id,
                  esp_matter_uint8((uint8_t)snapped));  // PercentCurrent is non-nullable
       }
+    } else if (attribute_id == FanControl::Attributes::FanMode::Id) {
+      // Controllers may write FanMode (Off/Low/Med/High/On/Auto) instead of a
+      // percent — Google Home in particular, and Apple's fan on/off toggle.
+      // Map the mode onto the AC's discrete speeds and reuse the same
+      // change-detection/queue path as PercentSetting.
+      uint8_t m = val->val.u8;
+      int snapped;
+      switch (m) {
+        case 1:  snapped = 33; break;  // Low
+        case 2:  snapped = 66; break;  // Medium
+        case 3:  snapped = 99; break;  // High
+        case 4:  snapped = 99; break;  // On -> treat as High
+        default: snapped = 0;  break;  // Off/Auto/Smart -> AC's auto fan
+      }
+      if (snapped != s_last_fan_percent.load()) {
+        s_last_fan_percent = snapped;
+        s_pending_fan_percent = snapped;
+        ESP_LOGI(TAG, "FanMode %u -> fan %d%%", m, snapped);
+        // Keep the percent attributes consistent with the mode the
+        // controller set (the PercentSetting handler no-ops on this write
+        // because s_last_fan_percent already matches).
+        set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::PercentSetting::Id,
+                 esp_matter_nullable_uint8((uint8_t)snapped));
+        set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::PercentCurrent::Id,
+                 esp_matter_uint8((uint8_t)snapped));
+      }
     }
   }
   return ESP_OK;
@@ -260,6 +310,21 @@ static esp_err_t identification_cb(identification::callback_type_t type, uint16_
 }
 
 static void create_endpoints(node_t *node) {
+#if AC_ENDPOINT_EXPERIMENT
+  // Room Air Conditioner (0x0072): one endpoint with OnOff (power, with
+  // dead-front behavior) + Thermostat; FanControl added below as the device
+  // type's optional cluster. Cooling feature is forced by the endpoint's
+  // create(); heating added the same way as mainline.
+  endpoint::room_air_conditioner::config_t ac_cfg;
+  ac_cfg.on_off.on_off = s_ac.power;
+  ac_cfg.thermostat.control_sequence_of_operation = 4;  // cooling & heating
+  ac_cfg.thermostat.system_mode = s_system_mode;
+  // AutoMode intentionally NOT enabled (deadband coupling; see mainline note).
+  ac_cfg.thermostat.feature_flags = cluster::thermostat::feature::cooling::get_id() |
+                                    cluster::thermostat::feature::heating::get_id();
+  endpoint_t *th = endpoint::room_air_conditioner::create(node, &ac_cfg, ENDPOINT_FLAG_NONE, NULL);
+  s_thermostat_ep = endpoint::get_id(th);
+#else
   // Thermostat: the base cluster's create() asserts that the Heating/Cooling
   // feature bits are already declared in feature_flags, so set them BEFORE
   // create(). Setpoints then come from the feature configs added afterward.
@@ -274,6 +339,7 @@ static void create_endpoints(node_t *node) {
                                     cluster::thermostat::feature::heating::get_id();
   endpoint_t *th = endpoint::thermostat::create(node, &th_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_thermostat_ep = endpoint::get_id(th);
+#endif
 
   cluster_t *th_cluster = cluster::get(th, kThermostatCluster);
   cluster::thermostat::feature::cooling::config_t cool_feat;
@@ -310,10 +376,19 @@ static void create_endpoints(node_t *node) {
   // report null at commissioning time. See create of the humidity endpoint
   // below, initialized to 50% exactly like the Arduino build did.
 
+#if AC_ENDPOINT_EXPERIMENT
+  // FanControl lives on the same Room-AC endpoint (optional cluster of the
+  // 0x0072 device type). The fan attribute handling keys on s_fan_ep +
+  // cluster id, so aliasing the endpoint id keeps the same code path.
+  cluster::fan_control::config_t fan_cl_cfg;
+  cluster::fan_control::create(th, &fan_cl_cfg, CLUSTER_FLAG_SERVER);
+  s_fan_ep = s_thermostat_ep;
+#else
   // Fan
   endpoint::fan::config_t fan_cfg;
   endpoint_t *fan = endpoint::fan::create(node, &fan_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_fan_ep = endpoint::get_id(fan);
+#endif
 
   // Temperature (local temp source). Non-null initial value: Apple Home is
   // known to hide/zero sensors that are null at commissioning (see
@@ -347,6 +422,12 @@ static void sync_shadows_from_matter() {
                          Thermostat::Attributes::SystemMode::Id, &v) == ESP_OK) {
     s_system_mode = v.val.u8;
   }
+#if AC_ENDPOINT_EXPERIMENT
+  if (attribute::get_val(s_thermostat_ep, OnOff::Id,
+                         OnOff::Attributes::OnOff::Id, &v) == ESP_OK) {
+    s_power = v.val.b;
+  }
+#endif
   if (attribute::get_val(s_thermostat_ep, kThermostatCluster,
                          Thermostat::Attributes::OccupiedCoolingSetpoint::Id, &v) == ESP_OK) {
     s_cool_centi = v.val.i16;
