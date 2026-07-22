@@ -107,6 +107,9 @@ static void apply_to_ac() {
              esp_matter_nullable_uint8(0));
     set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::FanMode::Id,
              esp_matter_enum8(0));  // FanModeEnum::kOff
+    set_attr(s_thermostat_ep, kThermostatCluster,
+             Thermostat::Attributes::ThermostatRunningState::Id,
+             esp_matter_bitmap16(0));  // idle
     return;
   }
 
@@ -124,6 +127,12 @@ static void apply_to_ac() {
   ESP_LOGI(TAG, "AC -> mode %d, target %dC", s_ac.mode, s_ac.temp_c);
   gw_ir_send(&s_ac);
   ac_store_save(&s_ac);
+
+  // Reflect the commanded activity: bit0=Heat, bit1=Cool, bit2=Fan running.
+  uint16_t running = (mode == MODE_HEAT ? 0x0001 : 0x0002) | 0x0004;
+  set_attr(s_thermostat_ep, kThermostatCluster,
+           Thermostat::Attributes::ThermostatRunningState::Id,
+           esp_matter_bitmap16(running));
 }
 
 static void schedule_apply() {
@@ -273,6 +282,25 @@ static void create_endpoints(node_t *node) {
   cluster::thermostat::feature::heating::config_t heat_feat;
   heat_feat.occupied_heating_setpoint = s_heat_centi.load();
   cluster::thermostat::feature::heating::add(th_cluster, &heat_feat);
+
+  // Setpoint limits: declare the AC's real range (16..31 C) so controllers
+  // bound the dial UI, and the thermostat cluster server rejects
+  // out-of-range writes per spec — ends the silent mismatch where Home
+  // offered temperatures the device then clamped. (Same pattern as CHIP's
+  // reference thermostat example.)
+  cluster::thermostat::attribute::create_abs_min_cool_setpoint_limit(th_cluster, AC_MIN_TEMP_C * 100);
+  cluster::thermostat::attribute::create_abs_max_cool_setpoint_limit(th_cluster, AC_MAX_TEMP_C * 100);
+  cluster::thermostat::attribute::create_min_cool_setpoint_limit(th_cluster, AC_MIN_TEMP_C * 100);
+  cluster::thermostat::attribute::create_max_cool_setpoint_limit(th_cluster, AC_MAX_TEMP_C * 100);
+  cluster::thermostat::attribute::create_abs_min_heat_setpoint_limit(th_cluster, AC_MIN_TEMP_C * 100);
+  cluster::thermostat::attribute::create_abs_max_heat_setpoint_limit(th_cluster, AC_MAX_TEMP_C * 100);
+  cluster::thermostat::attribute::create_min_heat_setpoint_limit(th_cluster, AC_MIN_TEMP_C * 100);
+  cluster::thermostat::attribute::create_max_heat_setpoint_limit(th_cluster, AC_MAX_TEMP_C * 100);
+
+  // Running state (bitmap16: bit0=Heat, bit1=Cool, bit2=Fan). Shows
+  // "actively cooling/heating" vs idle in controllers. Kept in sync by
+  // apply_to_ac() from the commanded state.
+  cluster::thermostat::attribute::create_thermostat_running_state(th_cluster, 0);
 
   // NOTE on humidity placement: both a bare RelativeHumidityMeasurement
   // cluster on the thermostat endpoint AND a composed humidity device type on
