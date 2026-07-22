@@ -35,7 +35,7 @@
 #define AC_MAX_TEMP_C      31
 #define AC_SEND_DEBOUNCE_MS 500
 #define DHT_READ_MS        30000   // DHT22 poll interval
-#define TEMP_OFFSET_C      2.0     // subtract self-heating (from old Config.h)
+#define TEMP_OFFSET_C      1.0     // subtract board-heat pickup (calibrated 2026-07-22)
 // Factory-reset button: hold the BOOT button (GPIO9) this long to decommission.
 #define RESET_BUTTON_GPIO  9
 #define RESET_HOLD_MS      5000
