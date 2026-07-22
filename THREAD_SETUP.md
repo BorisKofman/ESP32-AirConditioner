@@ -73,15 +73,18 @@ the manual code) to add the device, then rename it in Apple Home (e.g.
 "Bedroom AC"). To pin a fixed value on one board instead, `#define
 CUSTOM_MATTER_DISCRIMINATOR` / `CUSTOM_MATTER_PASSCODE` in that header.
 
-## Known gaps / TODO (not yet implemented in the native port)
+## Verified on hardware (2026-07-22)
 
-1. **DHT22 sensor** — `main.cpp` creates the temperature & humidity endpoints
-   but does not yet read the DHT. Port a native DHT read (RMT or bit-bang GPIO)
-   and call `attribute::update()` on the temperature/humidity clusters.
-2. **IR receive / protocol learning** — the Arduino version learned the protocol
+- **DHT22** — native bit-bang driver (`main/dht.c`) on GPIO 5 feeds the
+  temperature/humidity endpoints every 30 s (1.0 °C board-heat offset applied).
+- **Goodweather IR encoder** — confirmed against the real AC on multiple
+  units: mode/setpoint/off commands from Apple Home drive the physical unit.
+- **Full chain** — Apple Home → Thread → Matter → RMT IR → AC, including
+  setpoint limits (dial bounded 16–31 °C) and live running state.
+
+## Known gaps / TODO
+
+1. **IR receive / protocol learning** — the Arduino version learned the protocol
    from the remote. The native version **hardcodes Goodweather**. RX/learning is
    not ported (would need a native RMT RX + Goodweather decoder).
-3. **Goodweather frame not hardware-verified** — the encoder is a bit-accurate
-   port of the library, but it has NOT been confirmed against the real AC. Test
-   with the unit before trusting it.
-4. **GPIO pins** — `IR_SEND_GPIO` (4) and future DHT pin must match your C6 board.
+2. **GPIO pins** — `IR_SEND_GPIO` (4) and `DHT_GPIO` (5) must match your C6 board.
