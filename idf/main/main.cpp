@@ -9,6 +9,7 @@
 //   - Relative Humidity sensor                       <- DHT22
 // Local temperature is fed from the DHT22 as well.
 
+#include <atomic>
 #include <esp_log.h>
 #include <esp_matter.h>
 #include <esp_matter_endpoint.h>
@@ -69,19 +70,28 @@ static uint16_t s_fan_ep = 0;
 static uint16_t s_temp_ep = 0;
 static uint16_t s_humidity_ep = 0;
 
-static gw_state_t s_ac;                 // current desired A/C state
-static uint8_t s_system_mode = MODE_COOL;
-static double s_cool_setpoint = 22.0;
-static double s_heat_setpoint = 19.5;
-static int s_pending_fan_percent = -1;
-static int s_last_fan_percent = -1;     // last applied fan %, for change detection
-static TickType_t s_apply_due = 0;      // debounce deadline; 0 = not scheduled
+// The shadows below are written by attribute_cb on the Matter event-loop
+// thread and read by the main-loop task, so they must be atomic. Setpoints
+// are kept in Matter's native centi-degrees (int16, 0.01 C) — the old double
+// representation could tear on this 32-bit core and gained nothing.
+static gw_state_t s_ac;                              // current desired A/C state (main loop only)
+static std::atomic<uint8_t>    s_system_mode{MODE_COOL};
+static std::atomic<int16_t>    s_cool_centi{2200};   // OccupiedCoolingSetpoint
+static std::atomic<int16_t>    s_heat_centi{1950};   // OccupiedHeatingSetpoint
+static std::atomic<int>        s_pending_fan_percent{-1};
+static std::atomic<int>        s_last_fan_percent{-1};  // last applied fan %, for change detection
+static std::atomic<TickType_t> s_apply_due{0};       // debounce deadline; 0 = not scheduled
 
 // ---- IR emission: build gw_state from shadows and send ----
 static void apply_to_ac() {
+  // Clear the deadline BEFORE reading the shadows: if the Matter thread
+  // changes a value right after we read it, it also re-arms s_apply_due and
+  // the main loop fires again — worst case one redundant (debounced) send,
+  // never a lost change.
   s_apply_due = 0;
 
-  if (s_system_mode == MODE_OFF) {
+  uint8_t mode = s_system_mode;
+  if (mode == MODE_OFF) {
     s_ac.power = false;
     s_ac.command = 0x00;  // kGoodweatherCmdPower
     ESP_LOGI(TAG, "AC -> OFF");
@@ -101,12 +111,12 @@ static void apply_to_ac() {
   }
 
   s_ac.power = true;
-  double target = (s_system_mode == MODE_HEAT) ? s_heat_setpoint : s_cool_setpoint;
-  if (target < AC_MIN_TEMP_C) target = AC_MIN_TEMP_C;
-  if (target > AC_MAX_TEMP_C) target = AC_MAX_TEMP_C;
-  s_ac.temp_c = (uint8_t)(target + 0.5);
+  int16_t target_centi = (mode == MODE_HEAT) ? s_heat_centi.load() : s_cool_centi.load();
+  if (target_centi < AC_MIN_TEMP_C * 100) target_centi = AC_MIN_TEMP_C * 100;
+  if (target_centi > AC_MAX_TEMP_C * 100) target_centi = AC_MAX_TEMP_C * 100;
+  s_ac.temp_c = (uint8_t)((target_centi + 50) / 100);  // round to nearest degree
 
-  switch (s_system_mode) {
+  switch (mode) {
     case MODE_HEAT: s_ac.mode = GW_HEAT; s_ac.command = 0x01; break;
     case MODE_COOL: s_ac.mode = GW_COOL; s_ac.command = 0x01; break;
     default:        s_ac.mode = GW_COOL; s_ac.command = 0x01; break;
@@ -138,27 +148,27 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
         // MUST NOT call apply_to_ac() here (Matter event-loop thread; gw_ir_send
         // blocks) - defer to the main loop via schedule_apply().
         uint8_t m = val->val.u8;
-        if (m != s_system_mode) {
+        if (m != s_system_mode.load()) {
           s_system_mode = m;
-          ESP_LOGI(TAG, "SystemMode -> %d", s_system_mode);
+          ESP_LOGI(TAG, "SystemMode -> %d", m);
           schedule_apply();
         }
         break;
       }
       case Thermostat::Attributes::OccupiedCoolingSetpoint::Id: {
-        double v = val->val.i16 / 100.0;
-        if (v != s_cool_setpoint) {
-          s_cool_setpoint = v;
-          ESP_LOGI(TAG, "Cool setpoint -> %.1f", s_cool_setpoint);
+        int16_t v = val->val.i16;
+        if (v != s_cool_centi.load()) {
+          s_cool_centi = v;
+          ESP_LOGI(TAG, "Cool setpoint -> %.1f", v / 100.0);
           schedule_apply();
         }
         break;
       }
       case Thermostat::Attributes::OccupiedHeatingSetpoint::Id: {
-        double v = val->val.i16 / 100.0;
-        if (v != s_heat_setpoint) {
-          s_heat_setpoint = v;
-          ESP_LOGI(TAG, "Heat setpoint -> %.1f", s_heat_setpoint);
+        int16_t v = val->val.i16;
+        if (v != s_heat_centi.load()) {
+          s_heat_centi = v;
+          ESP_LOGI(TAG, "Heat setpoint -> %.1f", v / 100.0);
           schedule_apply();
         }
         break;
@@ -176,7 +186,7 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
                     : (pct <= 33) ? 33
                     : (pct <= 66) ? 66
                                   : 99;
-      if (snapped != s_last_fan_percent) {
+      if (snapped != s_last_fan_percent.load()) {
         s_last_fan_percent = snapped;
         s_pending_fan_percent = snapped;
         ESP_LOGI(TAG, "Fan percent %d -> snapped %d", pct, snapped);
@@ -258,29 +268,78 @@ static void create_endpoints(node_t *node) {
 
   cluster_t *th_cluster = cluster::get(th, kThermostatCluster);
   cluster::thermostat::feature::cooling::config_t cool_feat;
-  cool_feat.occupied_cooling_setpoint = (int16_t)(s_cool_setpoint * 100);
+  cool_feat.occupied_cooling_setpoint = s_cool_centi.load();
   cluster::thermostat::feature::cooling::add(th_cluster, &cool_feat);
   cluster::thermostat::feature::heating::config_t heat_feat;
-  heat_feat.occupied_heating_setpoint = (int16_t)(s_heat_setpoint * 100);
+  heat_feat.occupied_heating_setpoint = s_heat_centi.load();
   cluster::thermostat::feature::heating::add(th_cluster, &heat_feat);
+
+  // NOTE on humidity placement: both a bare RelativeHumidityMeasurement
+  // cluster on the thermostat endpoint AND a composed humidity device type on
+  // it were tried — Apple Home ignored both (verified empirically 2026-07).
+  // What works (proven by the old Arduino build) is a SEPARATE humidity
+  // endpoint whose MeasuredValue starts NON-NULL — Apple hides sensors that
+  // report null at commissioning time. See create of the humidity endpoint
+  // below, initialized to 50% exactly like the Arduino build did.
 
   // Fan
   endpoint::fan::config_t fan_cfg;
   endpoint_t *fan = endpoint::fan::create(node, &fan_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_fan_ep = endpoint::get_id(fan);
 
-  // Temperature (local temp source)
+  // Temperature (local temp source). Non-null initial value: Apple Home is
+  // known to hide/zero sensors that are null at commissioning (see
+  // esp-matter#265); the DHT overwrites it within ~30s anyway.
   endpoint::temperature_sensor::config_t temp_cfg;
+  temp_cfg.temperature_measurement.measured_value = nullable<int16_t>(2500);  // 25.00 C
   endpoint_t *temp = endpoint::temperature_sensor::create(node, &temp_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_temp_ep = endpoint::get_id(temp);
 
-  // Humidity
+  // Humidity: separate endpoint, non-null initial 50% — the exact layout the
+  // old Arduino build used (humidity.begin(50.0)), which displayed in Apple
+  // Home. Composed/thermostat-endpoint variants did not (see note above).
   endpoint::humidity_sensor::config_t hum_cfg;
+  hum_cfg.relative_humidity_measurement.measured_value = nullable<uint16_t>(5000);  // 50.00 %
   endpoint_t *hum = endpoint::humidity_sensor::create(node, &hum_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_humidity_ep = endpoint::get_id(hum);
 
   ESP_LOGI(TAG, "Endpoints: thermostat=%d fan=%d temp=%d humidity=%d",
            s_thermostat_ep, s_fan_ep, s_temp_ep, s_humidity_ep);
+}
+
+// ---- Boot sync: pull esp-matter's persisted attribute values into the shadows ----
+// SystemMode and both setpoints are ATTRIBUTE_FLAG_NONVOLATILE, so esp-matter
+// restores the user's last values from its own NVS at boot — overriding the
+// initial values we passed to create_endpoints(). Without this sync the shadows
+// keep their compile-time defaults and the first IR frame after a reboot is
+// built from a stale mode/setpoint mix.
+static void sync_shadows_from_matter() {
+  esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+  if (attribute::get_val(s_thermostat_ep, kThermostatCluster,
+                         Thermostat::Attributes::SystemMode::Id, &v) == ESP_OK) {
+    s_system_mode = v.val.u8;
+  }
+  if (attribute::get_val(s_thermostat_ep, kThermostatCluster,
+                         Thermostat::Attributes::OccupiedCoolingSetpoint::Id, &v) == ESP_OK) {
+    s_cool_centi = v.val.i16;
+  }
+  if (attribute::get_val(s_thermostat_ep, kThermostatCluster,
+                         Thermostat::Attributes::OccupiedHeatingSetpoint::Id, &v) == ESP_OK) {
+    s_heat_centi = v.val.i16;
+  }
+  // Fan: PercentSetting is NOT persisted by Matter, but the last applied fan
+  // speed IS in the ac_store-restored s_ac. Seed the change detector from it so
+  // the controller re-writing the same percent after a reboot doesn't fire a
+  // redundant IR send.
+  switch (s_ac.fan) {
+    case GW_FAN_LOW:  s_last_fan_percent = 33; break;
+    case GW_FAN_MED:  s_last_fan_percent = 66; break;
+    case GW_FAN_HIGH: s_last_fan_percent = 99; break;
+    default:          s_last_fan_percent = 0;  break;  // GW_FAN_AUTO
+  }
+  ESP_LOGI(TAG, "Shadows synced: mode=%d cool=%.1f heat=%.1f fan%%=%d",
+           s_system_mode.load(), s_cool_centi.load() / 100.0,
+           s_heat_centi.load() / 100.0, s_last_fan_percent.load());
 }
 
 extern "C" void app_main(void) {
@@ -334,6 +393,11 @@ extern "C" void app_main(void) {
 
   esp_matter::start(event_cb);
 
+  // Adopt the persisted mode/setpoints (restored by esp-matter from NVS) so the
+  // shadows match what the controller sees. Sync only — no IR send at boot: the
+  // AC itself wasn't power-cycled just because the ESP rebooted.
+  sync_shadows_from_matter();
+
   // Print the pairing QR-code URL + manual code to serial ONLY when the device
   // isn't commissioned yet (no fabrics). Once paired there's no need to keep
   // printing the code on every boot.
@@ -356,19 +420,23 @@ extern "C" void app_main(void) {
 
   // Main loop: debounced IR send, queued fan changes, and reset-button hold.
   TickType_t press_start = 0;  // 0 = not currently pressed
-  TickType_t dht_due = 0;      // next DHT read time (0 = read now)
+  // First DHT read waits ~2.5s: the sensor needs ~2s after power-up before it
+  // responds, so an immediate read always timed out and logged a warning.
+  TickType_t dht_due = xTaskGetTickCount() + pdMS_TO_TICKS(2500);
   while (true) {
-    if (s_apply_due != 0 && (int32_t)(xTaskGetTickCount() - s_apply_due) >= 0) {
+    TickType_t due = s_apply_due.load();
+    if (due != 0 && (int32_t)(xTaskGetTickCount() - due) >= 0) {
       apply_to_ac();
     }
-    if (s_pending_fan_percent >= 0) {
-      int p = s_pending_fan_percent;
-      s_pending_fan_percent = -1;
+    // exchange() so a fan write landing between "read" and "clear" can't be
+    // lost — the old two-step read-then-store had that window.
+    int p = s_pending_fan_percent.exchange(-1);
+    if (p >= 0) {
       apply_fan(p);
     }
 
     // Periodic DHT22 read -> feed Matter local temp + temp/humidity endpoints.
-    if (dht_due == 0 || (int32_t)(xTaskGetTickCount() - dht_due) >= 0) {
+    if ((int32_t)(xTaskGetTickCount() - dht_due) >= 0) {
       dht_due = xTaskGetTickCount() + pdMS_TO_TICKS(DHT_READ_MS);
       float t, h;
       if (dht_read(&t, &h)) {
