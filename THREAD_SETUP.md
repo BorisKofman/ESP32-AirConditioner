@@ -60,9 +60,18 @@ idf.py -p /dev/tty.usbmodemXXXX flash monitor
 
 On first boot the device advertises over BLE. Add it in Apple Home / Google
 Home; the commissioner pushes your Thread credentials over BLE and the device
-joins the mesh via the Border Router. The pairing passcode/discriminator is
-currently the esp-matter default test values — set custom ones in `main.cpp`
-before production (the old `CustomCommissionableData.h` logic can be ported).
+joins the mesh via the Border Router.
+
+The pairing **passcode and discriminator are derived automatically from the
+chip's unique factory MAC** (`main/custom_commissioning.h`), so the *same*
+firmware image can be flashed to every unit and each one gets a distinct
+pairing identity — no per-device code edits. Read each unit's code from the
+boot serial log: the QR-code URL and manual pairing code are printed by
+`PrintOnboardingCodes`, and the derived discriminator/passcode are also logged
+in plain text (`I (…) commission: Pairing identity: …`). Scan the QR (or type
+the manual code) to add the device, then rename it in Apple Home (e.g.
+"Bedroom AC"). To pin a fixed value on one board instead, `#define
+CUSTOM_MATTER_DISCRIMINATOR` / `CUSTOM_MATTER_PASSCODE` in that header.
 
 ## Known gaps / TODO (not yet implemented in the native port)
 
@@ -72,14 +81,7 @@ before production (the old `CustomCommissionableData.h` logic can be ported).
 2. **IR receive / protocol learning** — the Arduino version learned the protocol
    from the remote. The native version **hardcodes Goodweather**. RX/learning is
    not ported (would need a native RMT RX + Goodweather decoder).
-3. **Custom commissioning identity** — port the passcode/discriminator from the
-   old `CustomCommissionableData.h`.
-4. **Goodweather frame not hardware-verified** — the encoder is a bit-accurate
+3. **Goodweather frame not hardware-verified** — the encoder is a bit-accurate
    port of the library, but it has NOT been confirmed against the real AC. Test
    with the unit before trusting it.
-5. **GPIO pins** — `IR_SEND_GPIO` (4) and future DHT pin must match your C6 board.
-
-## Going back to WiFi
-
-The original Arduino sketch (root `.ino` + `Config.h` with `USE_THREAD 0`) still
-builds Matter-over-WiFi in the Arduino IDE on the C6, unchanged.
+4. **GPIO pins** — `IR_SEND_GPIO` (4) and future DHT pin must match your C6 board.
