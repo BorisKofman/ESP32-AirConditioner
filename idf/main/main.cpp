@@ -23,7 +23,6 @@
 #include <app/server/Server.h>  // re-open commissioning window on kFabricRemoved
 
 #include "goodweather_ir.h"
-#include "ac_store.h"
 #include "dht.h"
 #include "custom_commissioning.h"
 #include <setup_payload/OnboardingCodesUtil.h>  // PrintOnboardingCodes
@@ -40,13 +39,19 @@
 #define RESET_BUTTON_GPIO  9
 #define RESET_HOLD_MS      5000
 
-// EXPERIMENT (tested 2026-07-22, verdict: keep 0): 1 = expose a single Room
-// Air Conditioner endpoint (device type 0x0072: OnOff + Thermostat +
-// FanControl on one endpoint) instead of separate thermostat + fan
-// endpoints. Apple Home rendered it IDENTICALLY to the plain thermostat —
-// no power toggle gained — and DROPPED the fan control entirely (optional
-// clusters on the 0x0072 endpoint are ignored, consistent with the humidity
-// lesson above). Strictly worse; kept for reference/other controllers.
+// EXPERIMENT (2 rounds, verdict: keep 0): 1 = expose a single Room Air
+// Conditioner endpoint (device type 0x0072) instead of separate thermostat +
+// fan endpoints. Round 1 (2026-07-22, Heat+Cool only, bare FanControl): Apple
+// rendered a plain thermostat and dropped the fan. Round 2 (2026-07-23,
+// hardware-verified): exact Cptmeme/ESP-Matter-Daikin-S21 parity — AutoMode
+// (feature_flags 35), TemperatureMeasurement on the endpoint, FanControl
+// fan_mode_sequence 2 + Auto feature, OnOff<->SystemMode coupling. Controls
+// WORK in the detail view, but the Home tile degrades to a generic grey
+// "Matter Accessory" sensor tile (temp only, no mode/state, no fan) while
+// plain-thermostat units render active "Cool to X" tiles. Apple-side device
+// type limitation (cf. esp-matter#775); not fixable from firmware. The
+// AutoMode feature + Auto=fan-only mapping were kept in mainline.
+// NOTE: endpoint structure changes => factory reset + re-pair to test.
 #define AC_ENDPOINT_EXPERIMENT 0
 
 using namespace esp_matter;
@@ -69,9 +74,9 @@ static constexpr uint32_t kFanCluster        = FanControl::Id;
 static constexpr uint32_t kTempCluster       = TemperatureMeasurement::Id;
 static constexpr uint32_t kHumidityCluster   = RelativeHumidityMeasurement::Id;
 
-// Thermostat SystemMode enum values (Matter spec): 0=Off,3=Cool,4=Heat,1=Auto.
-// AutoMode is not enabled (see create_endpoints), so only these are used.
-enum { MODE_OFF = 0, MODE_COOL = 3, MODE_HEAT = 4 };
+// Thermostat SystemMode enum values (Matter spec): 0=Off,1=Auto,3=Cool,4=Heat.
+// Auto is only reachable when the AutoMode feature is enabled (experiment).
+enum { MODE_OFF = 0, MODE_AUTO = 1, MODE_COOL = 3, MODE_HEAT = 4 };
 
 // ---- Shadow state (equivalent to ThermostatAccessory's shadows) ----
 static uint16_t s_thermostat_ep = 0;
@@ -85,12 +90,14 @@ static uint16_t s_humidity_ep = 0;
 // representation could tear on this 32-bit core and gained nothing.
 static gw_state_t s_ac;                              // current desired A/C state (main loop only)
 static std::atomic<bool>       s_power{true};        // Room-AC experiment: OnOff cluster state
+static std::atomic<uint8_t>    s_last_active_mode{MODE_COOL};  // last non-Off mode, for OnOff=true restore
 static std::atomic<uint8_t>    s_system_mode{MODE_COOL};
 static std::atomic<int16_t>    s_cool_centi{2200};   // OccupiedCoolingSetpoint
 static std::atomic<int16_t>    s_heat_centi{1950};   // OccupiedHeatingSetpoint
 static std::atomic<int>        s_pending_fan_percent{-1};
 static std::atomic<int>        s_last_fan_percent{-1};  // last applied fan %, for change detection
 static std::atomic<TickType_t> s_apply_due{0};       // debounce deadline; 0 = not scheduled
+static std::atomic<TickType_t> s_fan_snap_due{0};    // deferred fan->Off snap-back; 0 = not scheduled
 
 // ---- IR emission: build gw_state from shadows and send ----
 static void apply_to_ac() {
@@ -106,7 +113,6 @@ static void apply_to_ac() {
     s_ac.command = 0x00;  // kGoodweatherCmdPower
     ESP_LOGI(TAG, "AC -> OFF");
     gw_ir_send(&s_ac);
-    ac_store_save(&s_ac);
 
     // Thermostat off => the AC's fan is off too. Reflect that on the fan
     // endpoint so Apple Home doesn't keep showing a running fan. Setting
@@ -124,6 +130,10 @@ static void apply_to_ac() {
   }
 
   s_ac.power = true;
+  // Heat/Cool use their own setpoint. Auto is mapped to the AC's FAN-ONLY
+  // mode (Boris's mapping, 2026-07-23): Apple's dial has no fan-only option,
+  // so "Auto" doubles as "just blow air". The AC ignores the temperature in
+  // fan mode; send the cool setpoint to keep the frame well-formed.
   int16_t target_centi = (mode == MODE_HEAT) ? s_heat_centi.load() : s_cool_centi.load();
   if (target_centi < AC_MIN_TEMP_C * 100) target_centi = AC_MIN_TEMP_C * 100;
   if (target_centi > AC_MAX_TEMP_C * 100) target_centi = AC_MAX_TEMP_C * 100;
@@ -132,14 +142,16 @@ static void apply_to_ac() {
   switch (mode) {
     case MODE_HEAT: s_ac.mode = GW_HEAT; s_ac.command = 0x01; break;
     case MODE_COOL: s_ac.mode = GW_COOL; s_ac.command = 0x01; break;
+    case MODE_AUTO: s_ac.mode = GW_FAN;  s_ac.command = 0x01; break;  // fan-only
     default:        s_ac.mode = GW_COOL; s_ac.command = 0x01; break;
   }
   ESP_LOGI(TAG, "AC -> mode %d, target %dC", s_ac.mode, s_ac.temp_c);
   gw_ir_send(&s_ac);
-  ac_store_save(&s_ac);
 
   // Reflect the commanded activity: bit0=Heat, bit1=Cool, bit2=Fan running.
-  uint16_t running = (mode == MODE_HEAT ? 0x0001 : 0x0002) | 0x0004;
+  // Auto is fan-only, so neither heat nor cool is reported — fan bit only.
+  uint16_t running =
+      0x0004 | (mode == MODE_HEAT ? 0x0001 : mode == MODE_COOL ? 0x0002 : 0);
   set_attr(s_thermostat_ep, kThermostatCluster,
            Thermostat::Attributes::ThermostatRunningState::Id,
            esp_matter_bitmap16(running));
@@ -154,6 +166,14 @@ static void schedule_apply() {
 static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint_id,
                               uint32_t cluster_id, uint32_t attribute_id,
                               esp_matter_attr_val_t *val, void *priv) {
+  // NOTE on fan-while-off strategies (all hardware-tested 2026-07-23):
+  // rejecting the write at PRE_UPDATE does NOT work with Apple Home — the
+  // value never changes, esp-matter skips reporting unchanged values
+  // (ESP_ERR_NOT_FINISHED in update_or_report), so the app's optimistic "on"
+  // UI persists until its periodic re-sync (1-2 min). The working approach is
+  // commit-then-revert: accept the write, then flip the value back 250 ms
+  // later — a real transition that reports immediately. See the fan guard in
+  // the POST_UPDATE handler below.
   if (type != attribute::POST_UPDATE) {
     return ESP_OK;
   }
@@ -166,6 +186,16 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
     if (on != s_power.load()) {
       s_power = on;
       ESP_LOGI(TAG, "Power -> %s", on ? "ON" : "OFF");
+      // OnOff=true while SystemMode is Off would still IR-send OFF (apply_to_ac
+      // keys on the mode) — restore the last active mode so the toggle really
+      // turns the AC on. s_system_mode is set BEFORE the attribute write, so
+      // the SystemMode POST_UPDATE this triggers no-ops on change detection.
+      if (on && s_system_mode.load() == MODE_OFF) {
+        uint8_t m = s_last_active_mode.load();
+        s_system_mode = m;
+        set_attr(s_thermostat_ep, kThermostatCluster,
+                 Thermostat::Attributes::SystemMode::Id, esp_matter_enum8(m));
+      }
       schedule_apply();
     }
     return ESP_OK;
@@ -184,6 +214,20 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
         if (m != s_system_mode.load()) {
           s_system_mode = m;
           ESP_LOGI(TAG, "SystemMode -> %d", m);
+#if AC_ENDPOINT_EXPERIMENT
+          // Keep OnOff in lockstep with the mode. Apple's tile power state
+          // follows the OnOff cluster, and apply_to_ac() gates on s_power —
+          // without this, picking Cool while OnOff=false IR-sends OFF and the
+          // tile never shows the AC as on (observed 2026-07-23). s_power is
+          // set BEFORE the write, so the OnOff POST_UPDATE no-ops.
+          if (m != MODE_OFF) s_last_active_mode = m;
+          bool want_on = (m != MODE_OFF);
+          if (want_on != s_power.load()) {
+            s_power = want_on;
+            set_attr(s_thermostat_ep, OnOff::Id, OnOff::Attributes::OnOff::Id,
+                     esp_matter_bool(want_on));
+          }
+#endif
           schedule_apply();
         }
         break;
@@ -209,6 +253,32 @@ static esp_err_t attribute_cb(attribute::callback_type_t type, uint16_t endpoint
       default: break;
     }
   } else if (endpoint_id == s_fan_ep && cluster_id == kFanCluster) {
+    // Thermostat Off => the AC (and its fan) are off. A fan write here must
+    // NOT reach the AC (no IR) — just snap the app's fan UI back to Off.
+    // Our own zero write-backs re-enter this callback with harmless values.
+    if (s_system_mode.load() == MODE_OFF) {
+      bool wants_on =
+          (attribute_id == FanControl::Attributes::PercentSetting::Id &&
+           !(val->type == ESP_MATTER_VAL_TYPE_NULLABLE_UINT8 && val->val.u8 == 0xFF) &&
+           val->val.u8 != 0) ||
+          (attribute_id == FanControl::Attributes::FanMode::Id && val->val.u8 != 0);
+      if (wants_on) {
+        // Commit-then-revert: the write has just committed (so the attribute
+        // holds the controller's value), no IR is queued, and the snap-back
+        // below reverts it to 0 shortly after — a REAL value transition, which
+        // is the only thing that produces an immediate report (see NOTE at the
+        // top of this callback). Don't write back inline: that lands inside
+        // the controller's write transaction and is ignored by Apple Home.
+        // Arm only if not already armed so repeat attempts don't postpone it.
+        ESP_LOGI(TAG, "Fan write while thermostat off - revert scheduled");
+        s_last_fan_percent = 0;
+        TickType_t expected = 0;
+        TickType_t due = xTaskGetTickCount() + pdMS_TO_TICKS(250);
+        if (due == 0) due = 1;
+        s_fan_snap_due.compare_exchange_strong(expected, due);
+      }
+      return ESP_OK;
+    }
     if (attribute_id == FanControl::Attributes::PercentSetting::Id) {
       // PercentSetting is a nullable uint8; null (0xFF sentinel) means "off".
       bool is_null = (val->type == ESP_MATTER_VAL_TYPE_NULLABLE_UINT8 && val->val.u8 == 0xFF);
@@ -270,7 +340,6 @@ static void apply_fan(int percent) {
   else                    s_ac.fan = GW_FAN_HIGH;
   s_ac.command = 0x05;  // kGoodweatherCmdFan
   gw_ir_send(&s_ac);
-  ac_store_save(&s_ac);
 }
 
 // ---- Matter stack event callback ----
@@ -311,17 +380,18 @@ static esp_err_t identification_cb(identification::callback_type_t type, uint16_
 
 static void create_endpoints(node_t *node) {
 #if AC_ENDPOINT_EXPERIMENT
-  // Room Air Conditioner (0x0072): one endpoint with OnOff (power, with
-  // dead-front behavior) + Thermostat; FanControl added below as the device
-  // type's optional cluster. Cooling feature is forced by the endpoint's
-  // create(); heating added the same way as mainline.
+  // Room Air Conditioner (0x0072), Daikin-S21-parity config: OnOff + Thermostat
+  // with Heat|Cool|Auto (feature_flags = 35, exactly what Daikin sets);
+  // FanControl and TemperatureMeasurement are added onto the SAME endpoint
+  // below. AutoMode brings back the deadband coupling (cool >= heat +
+  // deadband), but esp-matter's default MinSetpointDeadBand is only 0.2 C.
   endpoint::room_air_conditioner::config_t ac_cfg;
-  ac_cfg.on_off.on_off = s_ac.power;
+  ac_cfg.on_off.on_off = false;  // Daikin inits power off
   ac_cfg.thermostat.control_sequence_of_operation = 4;  // cooling & heating
   ac_cfg.thermostat.system_mode = s_system_mode;
-  // AutoMode intentionally NOT enabled (deadband coupling; see mainline note).
   ac_cfg.thermostat.feature_flags = cluster::thermostat::feature::cooling::get_id() |
-                                    cluster::thermostat::feature::heating::get_id();
+                                    cluster::thermostat::feature::heating::get_id() |
+                                    cluster::thermostat::feature::auto_mode::get_id();
   endpoint_t *th = endpoint::room_air_conditioner::create(node, &ac_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_thermostat_ep = endpoint::get_id(th);
 #else
@@ -331,12 +401,14 @@ static void create_endpoints(node_t *node) {
   endpoint::thermostat::config_t th_cfg;
   th_cfg.thermostat.control_sequence_of_operation = 4;  // cooling & heating
   th_cfg.thermostat.system_mode = s_system_mode;
-  // Cooling + Heating only. AutoMode is intentionally NOT enabled: it forces a
-  // deadband coupling (cool >= heat + deadband) inside the CHIP thermostat
-  // cluster, so raising heat pushes cool up and clobbers the user's cool value.
-  // Without AutoMode, cool and heat are fully independent. Modes: Off/Cool/Heat.
+  // Cooling + Heating + Auto. Auto is mapped to the AC's FAN-ONLY mode in
+  // apply_to_ac() (Apple's dial has no fan-only option, so Auto doubles as
+  // "just blow air"). AutoMode's deadband coupling (cool >= heat + deadband)
+  // once made us avoid it, but esp-matter's default MinSetpointDeadBand is
+  // 0.2 C — negligible. Modes: Off/Cool/Heat/Auto.
   th_cfg.thermostat.feature_flags = cluster::thermostat::feature::cooling::get_id() |
-                                    cluster::thermostat::feature::heating::get_id();
+                                    cluster::thermostat::feature::heating::get_id() |
+                                    cluster::thermostat::feature::auto_mode::get_id();
   endpoint_t *th = endpoint::thermostat::create(node, &th_cfg, ENDPOINT_FLAG_NONE, NULL);
   s_thermostat_ep = endpoint::get_id(th);
 #endif
@@ -348,6 +420,10 @@ static void create_endpoints(node_t *node) {
   cluster::thermostat::feature::heating::config_t heat_feat;
   heat_feat.occupied_heating_setpoint = s_heat_centi.load();
   cluster::thermostat::feature::heating::add(th_cluster, &heat_feat);
+  // AutoMode feature: adds ThermostatRunningMode and MinSetpointDeadBand
+  // (esp-matter default 0.2 C) and makes SystemMode=Auto legal.
+  cluster::thermostat::feature::auto_mode::config_t auto_feat;
+  cluster::thermostat::feature::auto_mode::add(th_cluster, &auto_feat);
 
   // Setpoint limits: declare the AC's real range (16..31 C) so controllers
   // bound the dial UI, and the thermostat cluster server rejects
@@ -377,12 +453,22 @@ static void create_endpoints(node_t *node) {
   // below, initialized to 50% exactly like the Arduino build did.
 
 #if AC_ENDPOINT_EXPERIMENT
-  // FanControl lives on the same Room-AC endpoint (optional cluster of the
-  // 0x0072 device type). The fan attribute handling keys on s_fan_ep +
-  // cluster id, so aliasing the endpoint id keeps the same code path.
+  // FanControl on the same Room-AC endpoint, configured exactly like Daikin:
+  // FanMode Auto, fan_mode_sequence 2 (Off/Low/Med/High/Auto), Auto feature.
+  // The fan attribute handling keys on s_fan_ep + cluster id, so aliasing the
+  // endpoint id keeps the same code path.
   cluster::fan_control::config_t fan_cl_cfg;
-  cluster::fan_control::create(th, &fan_cl_cfg, CLUSTER_FLAG_SERVER);
+  fan_cl_cfg.fan_mode = 5;           // FanModeEnum::kAuto
+  fan_cl_cfg.fan_mode_sequence = 2;  // Off/Low/Med/High/Auto
+  cluster_t *fan_cl = cluster::fan_control::create(th, &fan_cl_cfg, CLUSTER_FLAG_SERVER);
+  cluster::fan_control::feature::fan_auto::add(fan_cl);
   s_fan_ep = s_thermostat_ep;
+
+  // TemperatureMeasurement on the same endpoint (third Daikin delta). Non-null
+  // initial value per the Apple lesson; the DHT overwrites it within ~30 s.
+  cluster::temperature_measurement::config_t ac_temp_cfg;
+  ac_temp_cfg.measured_value = nullable<int16_t>(2500);  // 25.00 C
+  cluster::temperature_measurement::create(th, &ac_temp_cfg, CLUSTER_FLAG_SERVER);
 #else
   // Fan
   endpoint::fan::config_t fan_cfg;
@@ -427,6 +513,17 @@ static void sync_shadows_from_matter() {
                          OnOff::Attributes::OnOff::Id, &v) == ESP_OK) {
     s_power = v.val.b;
   }
+  // Reconcile: OnOff and SystemMode are kept in lockstep by attribute_cb, but
+  // NVS may hold a mismatched pair (e.g. persisted by a build without the
+  // coupling). SystemMode is the user's last real intent — make OnOff follow.
+  if (s_system_mode.load() != MODE_OFF) {
+    s_last_active_mode = s_system_mode.load();
+    if (!s_power.load()) {
+      s_power = true;
+      set_attr(s_thermostat_ep, OnOff::Id, OnOff::Attributes::OnOff::Id,
+               esp_matter_bool(true));
+    }
+  }
 #endif
   if (attribute::get_val(s_thermostat_ep, kThermostatCluster,
                          Thermostat::Attributes::OccupiedCoolingSetpoint::Id, &v) == ESP_OK) {
@@ -436,15 +533,20 @@ static void sync_shadows_from_matter() {
                          Thermostat::Attributes::OccupiedHeatingSetpoint::Id, &v) == ESP_OK) {
     s_heat_centi = v.val.i16;
   }
-  // Fan: PercentSetting is NOT persisted by Matter, but the last applied fan
-  // speed IS in the ac_store-restored s_ac. Seed the change detector from it so
-  // the controller re-writing the same percent after a reboot doesn't fire a
-  // redundant IR send.
-  switch (s_ac.fan) {
-    case GW_FAN_LOW:  s_last_fan_percent = 33; break;
-    case GW_FAN_MED:  s_last_fan_percent = 66; break;
-    case GW_FAN_HIGH: s_last_fan_percent = 99; break;
-    default:          s_last_fan_percent = 0;  break;  // GW_FAN_AUTO
+  // Fan: PercentSetting is NOT persisted by Matter, but FanMode IS
+  // (NONVOLATILE). Restore the fan speed from it — this runs before the main
+  // loop starts, so touching s_ac here is single-threaded. Matter's own NVS
+  // is the single source of reboot truth for ALL dynamic state (mode,
+  // setpoints, fan); swing/light/turbo are compile-time constants.
+  if (attribute::get_val(s_fan_ep, kFanCluster,
+                         FanControl::Attributes::FanMode::Id, &v) == ESP_OK) {
+    switch (v.val.u8) {           // FanModeEnum
+      case 1:  s_ac.fan = GW_FAN_LOW;  s_last_fan_percent = 33; break;  // Low
+      case 2:  s_ac.fan = GW_FAN_MED;  s_last_fan_percent = 66; break;  // Medium
+      case 3:                                                           // High
+      case 4:  s_ac.fan = GW_FAN_HIGH; s_last_fan_percent = 99; break;  // On
+      default: s_ac.fan = GW_FAN_AUTO; s_last_fan_percent = 0;  break;  // Off/Auto
+    }
   }
   ESP_LOGI(TAG, "Shadows synced: mode=%d cool=%.1f heat=%.1f fan%%=%d",
            s_system_mode.load(), s_cool_centi.load() / 100.0,
@@ -465,13 +567,13 @@ extern "C" void app_main(void) {
   gw_ir_init(IR_SEND_GPIO);
   dht_init(DHT_GPIO);
 
-  // Restore last A/C state (or a sane default).
-  if (!ac_store_load(&s_ac)) {
-    s_ac = (gw_state_t){ .power = false, .mode = GW_COOL, .temp_c = 22,
-                         .fan = GW_FAN_AUTO, .swing = GW_SWING_OFF,
-                         .light = true, .turbo = false, .sleep = false,
-                         .command = 0x00 };
-  }
+  // Baseline A/C state. The dynamic fields (mode/temp/fan) are restored from
+  // Matter's own NVS by sync_shadows_from_matter() after start() — no separate
+  // persistence needed. The rest are fixed defaults.
+  s_ac = (gw_state_t){ .power = false, .mode = GW_COOL, .temp_c = 22,
+                       .fan = GW_FAN_AUTO, .swing = GW_SWING_OFF,
+                       .light = true, .turbo = false, .sleep = false,
+                       .command = 0x00 };
 
   // node::create registers the attribute + identify callbacks internally,
   // so no separate attribute::set_callback() is needed.
@@ -538,10 +640,28 @@ extern "C" void app_main(void) {
       apply_to_ac();
     }
     // exchange() so a fan write landing between "read" and "clear" can't be
-    // lost — the old two-step read-then-store had that window.
+    // lost — the old two-step read-then-store had that window. Mode Off also
+    // drops any queued fan send (belt to the callback-level guard): the AC is
+    // off, no IR should go out for the fan.
     int p = s_pending_fan_percent.exchange(-1);
-    if (p >= 0) {
+    if (p >= 0 && s_system_mode.load() != MODE_OFF) {
       apply_fan(p);
+    }
+
+    // Deferred fan->Off snap-back (fan touched while thermostat is Off): runs
+    // after the controller's write transaction has closed, so the revert is
+    // reported as a fresh change the app actually renders.
+    TickType_t snap = s_fan_snap_due.load();
+    if (snap != 0 && (int32_t)(xTaskGetTickCount() - snap) >= 0) {
+      s_fan_snap_due = 0;
+      s_last_fan_percent = 0;
+      ESP_LOGI(TAG, "Fan snap-back: reverting fan attributes to Off");
+      set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::PercentSetting::Id,
+               esp_matter_nullable_uint8(0));
+      set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::PercentCurrent::Id,
+               esp_matter_uint8(0));
+      set_attr(s_fan_ep, kFanCluster, FanControl::Attributes::FanMode::Id,
+               esp_matter_enum8(0));  // FanModeEnum::kOff
     }
 
     // Periodic DHT22 read -> feed Matter local temp + temp/humidity endpoints.
@@ -558,6 +678,11 @@ extern "C" void app_main(void) {
         set_attr(s_thermostat_ep, kThermostatCluster,   // thermostat LocalTemperature
                  Thermostat::Attributes::LocalTemperature::Id,
                  esp_matter_nullable_int16(temp_centi));
+#if AC_ENDPOINT_EXPERIMENT
+        set_attr(s_thermostat_ep, kTempCluster,          // Room-AC endpoint's own temp cluster
+                 TemperatureMeasurement::Attributes::MeasuredValue::Id,
+                 esp_matter_nullable_int16(temp_centi));
+#endif
         set_attr(s_humidity_ep, kHumidityCluster,        // MeasuredValue: 0.01%
                  RelativeHumidityMeasurement::Attributes::MeasuredValue::Id,
                  esp_matter_nullable_uint16((uint16_t)(h * 100)));

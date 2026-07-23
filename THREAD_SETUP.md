@@ -5,7 +5,7 @@ because Matter-over-Thread on the C6 cannot be built with the Arduino core:
 
 - The Arduino Matter library is precompiled **WiFi-only**.
 - Building Matter-over-Thread from source needs **esp-matter**. This project is
-  built with **esp-matter 1.5 + ESP-IDF v5.5.4** (the documented compatible
+  built with **esp-matter 1.5 + ESP-IDF v5.5.5** (the documented compatible
   pair). Do not mix versions: esp-matter is tightly locked to a specific IDF
   release, and a mismatch causes deep CHIP compile errors.
 - Every `arduino-esp32` release either requires IDF >=5.3 (incompatible with
@@ -22,7 +22,6 @@ what this AC uses.
 |---|---|
 | `main/main.cpp` | `app_main`: creates the Matter thermostat/fan/temperature/humidity endpoints, handles attribute writes, drives IR |
 | `main/goodweather_ir.{c,h}` | Native RMT Goodweather IR encoder (ported from IRremoteESP8266's `ir_Goodweather.cpp`) |
-| `main/ac_store.{c,h}` | NVS persistence of the last A/C state (replaces Arduino Preferences) |
 | `sdkconfig.defaults` | Thread on, WiFi station off, FreeRTOS 1000 Hz, ClosureControl cluster excluded |
 | `main/idf_component.yml` | Depends on `espressif/esp_matter` only (no Arduino) |
 
@@ -31,13 +30,13 @@ what this AC uses.
 - **A Thread Border Router** on your network (HomePod mini / Apple TV 4K,
   Nest Hub 2nd gen / Nest Wifi Pro, Echo 4th gen, or DIY). Mandatory — without
   one the device cannot be commissioned or reached.
-- **ESP-IDF v5.5.4** installed at `~/esp/esp-idf-v5.5.4` (already done on this
+- **ESP-IDF v5.5.5** installed at `~/esp/esp-idf-v5.5.5` (already done on this
   machine).
 
 ## Build
 
 ```bash
-. ~/esp/esp-idf-v5.5.4/export.sh
+. ~/esp/esp-idf-v5.5.5/export.sh
 cd idf
 idf.py set-target esp32c6      # first time; applies sdkconfig.defaults
 idf.py build

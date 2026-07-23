@@ -2,7 +2,7 @@
 # No arduino-esp32: the app uses esp-matter's C++ API + native RMT/NVS/GPIO,
 # which removes the Arduino<->IDF version conflict entirely.
 dependencies:
-  # esp-matter 1.5 is validated against ESP-IDF v5.5.4.
+  # esp-matter 1.5 is validated against ESP-IDF v5.5.x (built here with v5.5.5).
   espressif/esp_matter:
     version: "^1.5.0"
   idf:
