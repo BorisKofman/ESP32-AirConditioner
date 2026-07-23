@@ -11,7 +11,6 @@ static const char *TAG = "gw_ir";
 #define GW_BIT_MARK    580
 #define GW_ONE_SPACE   580
 #define GW_ZERO_SPACE  1860
-#define GW_MSG_GAP     20000   // kDefaultMessageGap-ish trailing gap
 
 #define GW_BITS        48
 #define GW_STATE_INIT  0xD50000000000ULL
@@ -29,8 +28,21 @@ static const char *TAG = "gw_ir";
 // RMT runs at 1 MHz (1 tick = 1 us) so timings map directly to durations.
 #define GW_RMT_RESOLUTION_HZ 1000000
 
+// Transmit queue depth AND symbol-buffer ring size — they must match. The
+// copy encoder streams from the caller's buffer DURING transmission (ISR
+// refill; a frame is ~190 ms on air), so a buffer must stay untouched until
+// its transaction completes. With a ring as deep as the queue, by the time a
+// buffer index comes around again its transaction has necessarily finished
+// (rmt_transmit blocks/fails when the queue is full). A single static buffer
+// here corrupted back-to-back sends (e.g. mode change immediately followed by
+// a fan frame).
+#define GW_TXQ_DEPTH 4
+
 static rmt_channel_handle_t s_tx_chan = NULL;
 static rmt_encoder_handle_t s_copy_encoder = NULL;
+// Worst case per frame: header(1) + 6 bytes * 16 bits(96) + footer(2) = 99.
+static rmt_symbol_word_t s_symbols[GW_TXQ_DEPTH][128];
+static int s_symbols_idx = 0;
 
 uint64_t gw_ir_build_raw(const gw_state_t *st) {
   uint64_t raw = GW_STATE_INIT;
@@ -60,7 +72,7 @@ void gw_ir_init(int gpio_num) {
       .clk_src = RMT_CLK_SRC_DEFAULT,
       .resolution_hz = GW_RMT_RESOLUTION_HZ,
       .mem_block_symbols = 64,
-      .trans_queue_depth = 4,
+      .trans_queue_depth = GW_TXQ_DEPTH,
       .gpio_num = gpio_num,
   };
   ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_cfg, &s_tx_chan));
@@ -96,8 +108,9 @@ void gw_ir_send(const gw_state_t *st) {
   }
   uint64_t raw = gw_ir_build_raw(st);
 
-  // Worst case: header(1) + 6 bytes * 16 bits(96) + footer(2) = 99 symbols.
-  static rmt_symbol_word_t symbols[128];
+  // Rotate through the buffer ring (see GW_TXQ_DEPTH note above).
+  rmt_symbol_word_t *symbols = s_symbols[s_symbols_idx];
+  s_symbols_idx = (s_symbols_idx + 1) % GW_TXQ_DEPTH;
   size_t n = 0;
 
   // Header
@@ -116,8 +129,8 @@ void gw_ir_send(const gw_state_t *st) {
   // Footer: mark, long space, then a final mark whose trailing level has
   // duration 0. That zero-duration entry is the RMT end-of-transmission marker;
   // without it the channel never signals "done" and rmt_tx_wait_all_done times
-  // out (the "flush timeout" we were hitting). The inter-message gap is enforced
-  // by the caller's send cadence instead of a trailing space here.
+  // out (the "flush timeout" we were hitting). Queued frames are serialized by
+  // the driver, and the footer's long space doubles as the inter-message gap.
   push_symbol(symbols, &n, GW_BIT_MARK, GW_HDR_SPACE);
   symbols[n].level0 = 1;
   symbols[n].duration0 = GW_BIT_MARK;

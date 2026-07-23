@@ -57,6 +57,11 @@ CONFIG_CHIP_LOG_DEFAULT_LEVEL_PROGRESS=y
 # --- BLE needed for commissioning (Thread credentials pushed over BLE) ------
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
+# Reclaim BLE RAM once paired: deinit BLE after successful commissioning and
+# skip BLE init on boot when already provisioned — more heap headroom for the
+# OpenThread router role (child tables, message buffers). This is the CHIP
+# Kconfig default; pinned here so a future default flip can't regress it.
+CONFIG_USE_BLE_ONLY_FOR_COMMISSIONING=y
 
 # --- Size savings + OTA (from Espressif's official c6_thread config) ---------
 # Reuse mbedTLS SHA instead of libsodium's copy; drop the unused Groupcast
@@ -78,12 +83,10 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 # N16 module = 16 MB flash
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
-# --- Arduino core requirements ----------------------------------------------
-# The Arduino core hard-requires a 1000 Hz FreeRTOS tick (default is 100).
+# --- FreeRTOS tick ------------------------------------------------------------
+# 1000 Hz tick (default is 100): the app's ms-level deadlines (IR debounce,
+# fan snap-back, DHT retry) are tick-based and want 1 ms resolution.
 CONFIG_FREERTOS_HZ=1000
-# setup()/loop() come from the sketch; main.cpp includes the .ino
-CONFIG_AUTOSTART_ARDUINO=y
-CONFIG_ARDUINO_LOOP_STACK_SIZE=8192
 
 # --- mbedTLS / crypto headroom for Matter -----------------------------------
 CONFIG_MBEDTLS_HKDF_C=y

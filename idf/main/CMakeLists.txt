@@ -11,5 +11,6 @@ idf_component_register(
     nvs_flash
     esp_matter
     openthread
+    ieee802154      # esp_ieee802154_set_txpower (Thread range)
     esp_hw_support  # esp_efuse_mac_get_default (MAC-derived pairing identity)
 )

@@ -1,69 +1,100 @@
 #include "dht.h"
 #include "driver/gpio.h"
-#include "esp_rom_sys.h"      // esp_rom_delay_us
+#include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <inttypes.h>
 
 static const char *TAG = "dht";
 static int s_gpio = -1;
 
-void dht_init(int gpio_num) {
-  s_gpio = gpio_num;
-  gpio_set_direction((gpio_num_t)s_gpio, GPIO_MODE_INPUT_OUTPUT_OD);
-  gpio_set_level((gpio_num_t)s_gpio, 1);  // idle high (open-drain + pull-up)
-  ESP_LOGI(TAG, "DHT22 initialized on GPIO %d", s_gpio);
+// Edge-timestamp capture. The sensor's reply is a train of high pulses whose
+// LENGTH encodes the data (~26-28us = 0, ~70us = 1, and one ~80us response
+// pulse up front). The ISR stamps rising edges and appends each completed
+// high-pulse duration; the reader task just sleeps while the ~5 ms transfer
+// happens. This replaces the old busy-poll driver, which sampled inside
+// taskENTER_CRITICAL — ~5 ms with ALL interrupts masked (long enough to drop
+// 802.15.4 frames on this C6) — and whose "microseconds" were really loop
+// iterations, calibrated to the CPU frequency by luck.
+//
+// Expected pulses: 1 response + 40 bits = 41; our own release-to-sensor-pull
+// handover can add one spurious ~30us high in front, so parse the LAST 40.
+#define DHT_MAX_HIGHS 48
+static volatile int64_t  s_rise_us;
+static volatile uint16_t s_high_us[DHT_MAX_HIGHS];
+static volatile int      s_high_count;
+
+static void IRAM_ATTR dht_isr(void *arg) {
+  int64_t now = esp_timer_get_time();
+  if (gpio_get_level((gpio_num_t)s_gpio)) {
+    s_rise_us = now;
+  } else if (s_rise_us > 0) {
+    int64_t d = now - s_rise_us;
+    s_rise_us = 0;
+    int i = s_high_count;
+    if (i < DHT_MAX_HIGHS && d < UINT16_MAX) {
+      s_high_us[i] = (uint16_t)d;
+      s_high_count = i + 1;
+    }
+  }
 }
 
-// Wait until the line reaches `level`, up to timeout_us. Returns elapsed us,
-// or -1 on timeout.
-static int wait_level(int level, int timeout_us) {
-  int us = 0;
-  while (gpio_get_level((gpio_num_t)s_gpio) != level) {
-    if (us++ > timeout_us) return -1;
-    esp_rom_delay_us(1);
+void dht_init(int gpio_num) {
+  s_gpio = gpio_num;
+  gpio_config_t cfg = {
+      .pin_bit_mask = 1ULL << s_gpio,
+      .mode = GPIO_MODE_INPUT_OUTPUT_OD,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&cfg);
+  gpio_set_level((gpio_num_t)s_gpio, 1);  // idle high (open-drain + pull-up)
+
+  // Shared GPIO ISR service; another component may have installed it already.
+  esp_err_t err = gpio_install_isr_service(0);
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    ESP_LOGE(TAG, "gpio_install_isr_service failed: %s", esp_err_to_name(err));
   }
-  return us;
+  ESP_LOGI(TAG, "DHT22 initialized on GPIO %d", s_gpio);
 }
 
 bool dht_read(float *temp_c, float *humidity) {
   if (s_gpio < 0) return false;
-  uint8_t data[5] = {0};
 
-  // Start signal: pull low >=1ms, then release and let the sensor respond.
-  // Timing is tight, so guard the sampling section from task preemption.
+  // Start signal: hold the line low >=1 ms. vTaskDelay (not a busy-wait):
+  // nothing time-critical happens until the sensor starts answering.
   gpio_set_level((gpio_num_t)s_gpio, 0);
-  esp_rom_delay_us(1200);           // >=1ms low
+  vTaskDelay(pdMS_TO_TICKS(2));
+
+  // Arm the edge capture BEFORE releasing the line so no edge is missed,
+  // then release and sleep through the ~5 ms transfer.
+  s_rise_us = 0;
+  s_high_count = 0;
+  gpio_isr_handler_add((gpio_num_t)s_gpio, dht_isr, NULL);
+  gpio_set_intr_type((gpio_num_t)s_gpio, GPIO_INTR_ANYEDGE);
+  gpio_intr_enable((gpio_num_t)s_gpio);
   gpio_set_level((gpio_num_t)s_gpio, 1);
-  esp_rom_delay_us(30);
 
-  portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-  taskENTER_CRITICAL(&mux);
+  vTaskDelay(pdMS_TO_TICKS(8));
 
-  bool ok = true;
-  // Sensor pulls low ~80us, then high ~80us as its response.
-  if (wait_level(0, 100) < 0) ok = false;
-  if (ok && wait_level(1, 100) < 0) ok = false;
-  if (ok && wait_level(0, 100) < 0) ok = false;
+  gpio_intr_disable((gpio_num_t)s_gpio);
+  gpio_isr_handler_remove((gpio_num_t)s_gpio);
+  gpio_set_level((gpio_num_t)s_gpio, 1);  // leave the line released
 
-  // 40 bits: each starts with ~50us low, then a high whose length encodes the
-  // bit (~26-28us = 0, ~70us = 1).
-  for (int i = 0; ok && i < 40; i++) {
-    if (wait_level(1, 100) < 0) { ok = false; break; }  // end of the 50us low
-    int high_us = wait_level(0, 150);                   // measure high length
-    if (high_us < 0) { ok = false; break; }
-    data[i / 8] <<= 1;
-    if (high_us > 45) data[i / 8] |= 1;                 // long high => bit 1
-  }
-
-  taskEXIT_CRITICAL(&mux);
-  gpio_set_level((gpio_num_t)s_gpio, 1);  // release line
-
-  if (!ok) {
-    ESP_LOGW(TAG, "DHT read timeout");
+  int n = s_high_count;
+  if (n < 41) {
+    ESP_LOGW(TAG, "DHT read failed: %d pulses (want >=41)", n);
     return false;
   }
+
+  // The last 40 high pulses are the data bits, MSB-first.
+  uint8_t data[5] = {0};
+  for (int i = 0; i < 40; i++) {
+    data[i / 8] <<= 1;
+    if (s_high_us[n - 40 + i] > 48) data[i / 8] |= 1;  // ~27us = 0, ~70us = 1
+  }
+
   // Checksum: sum of first 4 bytes (low 8 bits) must equal byte 5.
   if (((data[0] + data[1] + data[2] + data[3]) & 0xFF) != data[4]) {
     ESP_LOGW(TAG, "DHT checksum error");

@@ -19,6 +19,7 @@
 #include <driver/gpio.h>
 // Matter-over-Thread: the OpenThread platform config must be set before start().
 #include <esp_openthread_types.h>
+#include <esp_ieee802154.h>  // esp_ieee802154_set_txpower (Thread range)
 #include <platform/ESP32/OpenthreadLauncher.h>
 #include <app/server/Server.h>  // re-open commissioning window on kFabricRemoved
 
@@ -604,6 +605,15 @@ extern "C" void app_main(void) {
 
   esp_matter::start(event_cb);
 
+  // Thread range: raise the 802.15.4 TX power to the C6's maximum, +20 dBm
+  // (stack default is well below). Boris's choice for maximum range; note the
+  // trade-offs: with the PCB antenna's ~2 dBi the EIRP nudges the 2.4 GHz
+  // 100 mW limit, and TX reach can exceed RX reach (asymmetric links). Drop
+  // to 15 if mesh links look flaky. Must run AFTER start() — the OpenThread
+  // launch initializes the radio and would otherwise override this.
+  esp_ieee802154_set_txpower(20);
+  ESP_LOGI(TAG, "802.15.4 TX power: %d dBm", esp_ieee802154_get_txpower());
+
   // Adopt the persisted mode/setpoints (restored by esp-matter from NVS) so the
   // shadows match what the controller sees. Sync only — no IR send at boot: the
   // AC itself wasn't power-cycled just because the ESP rebooted.
@@ -634,6 +644,7 @@ extern "C" void app_main(void) {
   // First DHT read waits ~2.5s: the sensor needs ~2s after power-up before it
   // responds, so an immediate read always timed out and logged a warning.
   TickType_t dht_due = xTaskGetTickCount() + pdMS_TO_TICKS(2500);
+  bool dht_retry_used = false;  // one quick retry per failed read cycle
   while (true) {
     TickType_t due = s_apply_due.load();
     if (due != 0 && (int32_t)(xTaskGetTickCount() - due) >= 0) {
@@ -665,10 +676,19 @@ extern "C" void app_main(void) {
     }
 
     // Periodic DHT22 read -> feed Matter local temp + temp/humidity endpoints.
+    // On failure, retry once ~2.5s later (the sensor needs ~2s between reads)
+    // so a single bad cycle doesn't leave a 60s gap in the readings.
     if ((int32_t)(xTaskGetTickCount() - dht_due) >= 0) {
-      dht_due = xTaskGetTickCount() + pdMS_TO_TICKS(DHT_READ_MS);
       float t, h;
-      if (dht_read(&t, &h)) {
+      bool dht_ok = dht_read(&t, &h);
+      if (!dht_ok && !dht_retry_used) {
+        dht_retry_used = true;
+        dht_due = xTaskGetTickCount() + pdMS_TO_TICKS(2500);
+      } else {
+        dht_retry_used = false;
+        dht_due = xTaskGetTickCount() + pdMS_TO_TICKS(DHT_READ_MS);
+      }
+      if (dht_ok) {
         float adj = t - TEMP_OFFSET_C;
         ESP_LOGI(TAG, "DHT: %.1fC (raw %.1f), %.0f%%", adj, t, h);
         int16_t temp_centi = (int16_t)(adj * 100);   // MeasuredValue: 0.01C
